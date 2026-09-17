@@ -450,7 +450,7 @@
 </head>
 <body>
 
-<!-- ═══════════════ LOGIN SCREEN ═══════════════ -->
+<!-- ═════════════ LOGIN SCREEN ═════════════ -->
 <div class="login-screen" id="loginScreen">
   <form class="login-card" id="loginForm">
     <div class="brandmark">BATA WMS</div>
@@ -468,7 +468,7 @@
   </form>
 </div>
 
-<!-- ═══════════════ APP SHELL ═══════════════ -->
+<!-- ═════════════ APP SHELL ═════════════ -->
 <div class="shell" id="appShell">
 
   <aside class="sidebar">
@@ -687,6 +687,18 @@
         <input type="text" class="live-input" data-live="receive" data-filter="receiver" placeholder="Receiver">
         <input type="text" class="live-input" data-live="receive" data-filter="invoice" placeholder="Invoice">
       </div>
+      <div class="section-head">
+        <h3>สรุปยอดรายวัน</h3>
+        <div class="hint">รวมทุก invoice ในช่วงวันที่ที่เลือก แยกตามวัน</div>
+      </div>
+      <div class="panel" style="margin-bottom:22px;">
+        <table>
+          <thead>
+            <tr><th>วันที่</th><th>จำนวนใบ</th><th>Pair</th><th>Accessories</th><th>ToTalAmount</th></tr>
+          </thead>
+          <tbody id="receiveDailyBody"><tr><td colspan="5" class="empty-note">กำลังโหลด…</td></tr></tbody>
+        </table>
+      </div>
       <div class="panel">
         <table>
           <thead>
@@ -718,6 +730,18 @@
         <input type="text" class="live-input" data-live="dispatch" data-filter="sender" placeholder="Sender">
         <input type="text" class="live-input" data-live="dispatch" data-filter="receiver" placeholder="Receiver">
         <input type="text" class="live-input" data-live="dispatch" data-filter="invoice" placeholder="Invoice">
+      </div>
+      <div class="section-head">
+        <h3>สรุปยอดรายวัน</h3>
+        <div class="hint">รวมทุก invoice ในช่วงวันที่ที่เลือก แยกตามวัน</div>
+      </div>
+      <div class="panel" style="margin-bottom:22px;">
+        <table>
+          <thead>
+            <tr><th>วันที่</th><th>จำนวนใบ</th><th>Pair</th><th>Accessories</th><th>ToTalAmount</th></tr>
+          </thead>
+          <tbody id="dispatchDailyBody"><tr><td colspan="5" class="empty-note">กำลังโหลด…</td></tr></tbody>
+        </table>
       </div>
       <div class="panel">
         <table>
@@ -765,18 +789,18 @@
 </div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════
 // CONFIG — fill these in with your Supabase project details
 // (Settings → API in the Supabase dashboard). The anon key is safe
 // to expose in client-side code as long as RLS policies are set —
 // never put the service_role key here.
-// ═══════════════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════
 const SUPABASE_URL = 'https://enldlrgxuzaspmmombcd.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVubGRscmd4dXphc3BtbW9tYmNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2MzIzNzksImV4cCI6MjEwNTIwODM3OX0.BVo-_ZwFHZQAL9beJ5FJE0RwAatA-A5EBOUlLHBGr84';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ─── Role → nav/shortcut visibility ─────────────────────────────
+// ─── Role → nav/shortcut visibility ────────────────────────
 let currentRole = null;
 let currentUser = null;
 
@@ -824,9 +848,24 @@ function liveFmtNum(v){
   return Number.isFinite(n) ? n.toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '—';
 }
 
+function renderLiveDaily(view, daily){
+  const dailyBodyEl = document.getElementById(view + 'DailyBody');
+  dailyBodyEl.innerHTML = !daily || daily.length === 0
+    ? '<tr><td colspan="5" class="empty-note">ไม่พบข้อมูล</td></tr>'
+    : daily.map(d => `
+      <tr>
+        <td>${liveFmtDate(d.date)}</td>
+        <td class="num">${liveFmtNum(d.invoiceCount)}</td>
+        <td class="num">${liveFmtNum(d.pair)}</td>
+        <td class="num">${liveFmtNum(d.accessories)}</td>
+        <td class="num">${liveFmtNum(d.totalAmount)}</td>
+      </tr>`).join('');
+}
+
 async function loadLive(view){
   const table = LIVE_TABLE[view];
   const bodyEl = document.getElementById(view + 'Body');
+  const dailyBodyEl = document.getElementById(view + 'DailyBody');
   const filters = liveFilters(view);
 
   // dispatch/receiving hold millions of rows — never query with no date
@@ -834,12 +873,14 @@ async function loadLive(view){
   // wait for the user to pick a date range instead.
   if (!filters.dateFrom && !filters.dateTo) {
     bodyEl.innerHTML = '<tr><td colspan="8" class="empty-note">เลือกช่วงวันที่เพื่อดูข้อมูล</td></tr>';
+    dailyBodyEl.innerHTML = '<tr><td colspan="5" class="empty-note">เลือกช่วงวันที่เพื่อดูข้อมูล</td></tr>';
     liveState[view].rows = [];
     document.getElementById(view + 'Status').textContent = 'หน้า 0/0 — ทั้งหมด 0 invoice';
     return;
   }
 
   bodyEl.innerHTML = '<tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr>';
+  dailyBodyEl.innerHTML = '<tr><td colspan="5" class="empty-note">กำลังโหลด…</td></tr>';
 
   const qs = new URLSearchParams(Object.entries(filters));
   let data;
@@ -849,6 +890,7 @@ async function loadLive(view){
     data = await res.json();
   } catch (err) {
     bodyEl.innerHTML = `<tr><td colspan="8" class="empty-note">โหลดข้อมูลไม่สำเร็จ — หน้านี้ใช้ได้เฉพาะเมื่อเปิดจากในวง LAN ของออฟฟิศ (${err.message})</td></tr>`;
+    dailyBodyEl.innerHTML = '<tr><td colspan="5" class="empty-note">โหลดข้อมูลไม่สำเร็จ</td></tr>';
     document.getElementById(view + 'Status').textContent = '';
     return;
   }
@@ -869,6 +911,8 @@ async function loadLive(view){
         <td class="num">${liveFmtNum(r.accessories)}</td>
         <td class="num">${liveFmtNum(r.totalAmount)}</td>
       </tr>`).join('');
+
+  renderLiveDaily(view, data.daily);
 
   const total = data.total ?? rows.length;
   const totalPages = Math.max(1, Math.ceil(total / livePageSize));
@@ -931,7 +975,7 @@ document.querySelectorAll('[data-live][data-action]').forEach(el => {
   });
 });
 
-// ─── View switching ──────────────────────────────────────────────
+// ─── View switching ───────────────────────────────────────
 function showView(name){
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.remove('active'));
@@ -948,7 +992,7 @@ document.addEventListener('click', (e) => {
   if (trigger) showView(trigger.getAttribute('data-view'));
 });
 
-// ─── Clock ───────────────────────────────────────────────────────
+// ─── Clock ────────────────────────────────────────────
 function tickClock(){
   const now = new Date();
   document.getElementById('clockText').textContent =
@@ -958,7 +1002,7 @@ function tickClock(){
 tickClock();
 setInterval(tickClock, 30000);
 
-// ─── Auth: login / logout ────────────────────────────────────────
+// ─── Auth: login / logout ──────────────────────────────
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('loginEmail').value.trim();
@@ -1086,7 +1130,7 @@ async function loadHomeData(){
 document.getElementById('homeDateFilter').value = homeTodayStr();
 document.getElementById('homeDateFilter').addEventListener('change', loadHomeData);
 
-// ─── Admin: user/role management ─────────────────────────────────
+// ─── Admin: user/role management ─────────────────────────
 async function loadUsers(){
   if (currentRole !== 'admin') return;
   const { data, error } = await sb.from('profiles').select('id, email, full_name, role').order('email');
@@ -1119,7 +1163,8 @@ async function loadUsers(){
   });
 }
 
-// ─── Boot: restore session if already logged in ──────────────────
+// ─── Boot: restore session if already logged in ──────────────
+document.getElementById('homeDateFilter').value = homeTodayStr();
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (session) await onSignedIn();

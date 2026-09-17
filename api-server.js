@@ -5,10 +5,14 @@
  * on every request — no sync delay, unlike the Supabase copy that sync.js
  * updates a few times a day.
  *
- * Serves both this API and the static page in public/ from one process, on
- * plain HTTP, so it only needs to be reachable from inside the office LAN.
- * Do NOT port-forward this to the internet — it has no auth yet and talks
- * to the production MySQL database.
+ * Serves both this API and the main app (Index/index.html — same Supabase
+ * login/roles/dashboard as the public site) from one process, on plain
+ * HTTP, so it only needs to be reachable from inside the office LAN. The
+ * Dispatch/Receiving menus call this API for live data; every other menu
+ * still talks to Supabase like the GitHub Pages copy does.
+ *
+ * Do NOT port-forward this to the internet — it has no auth of its own on
+ * the API routes and talks to the production MySQL database.
  */
 
 const path = require('path');
@@ -114,7 +118,7 @@ function buildCountQuery(table, filters) {
 }
 
 const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'Index')));
 
 app.get('/api/:table', async (req, res) => {
   const { table } = req.params;

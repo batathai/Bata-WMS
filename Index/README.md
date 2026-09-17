@@ -53,7 +53,14 @@ in the database, regardless of what the page shows.
 - **Login, logout, role detection, nav/shortcut visibility** — fully working.
 - **User management (admin)** — lists everyone in `profiles`, lets an admin
   change any user's role live.
-- **All other menu items** (รับสินค้าเข้า, จ่ายสินค้าออก, มาสเตอร์ดาต้า, ตรวจนับสต็อก, etc.)
+- **รับสินค้าเข้า (Receiving) / จ่ายสินค้าออก (Dispatch)** — live, grouped-by-invoice
+  tables with filters, CSV export, but **only when this page is opened from
+  inside the office LAN** (e.g. `http://<lan-ip>:3001`, served by
+  `../api-server.js`). They call `/api/dispatch` and `/api/receiving`, which
+  query the source MySQL directly (no sync delay). Opened from the public
+  GitHub Pages link instead, these two menus show a "can't reach the LAN
+  API" message — that's expected, not a bug.
+- **All other menu items** (มาสเตอร์ดาต้า, ตรวจนับสต็อก, etc.)
   — the navigation and role-gating work, but each page is currently a
   placeholder panel. Building out each one as a real form/table is the
   natural next step — happy to do any of them next.

@@ -405,6 +405,29 @@
     padding:40px 20px; text-align:center; color:var(--ink-soft); font-size:13px;
   }
 
+  /* ---------- Live Dispatch/Receiving (LAN-only API) ---------- */
+  .live-toolbar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+  .live-filters{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-bottom:12px; }
+  .live-input{
+    padding:8px 10px; border:1px solid var(--line); border-radius:3px;
+    background:var(--bg); color:var(--ink); font-family:inherit; font-size:13px;
+  }
+  .live-input:focus{ outline:2px solid var(--brand); outline-offset:1px; }
+  .live-btn{
+    padding:8px 12px; border:1px solid var(--line); border-radius:3px;
+    background:var(--panel); color:var(--ink); font-family:inherit; font-size:13px; cursor:pointer;
+  }
+  .live-btn:hover{ border-color:var(--brand); }
+  .live-btn.primary{ background:var(--brand); color:#fff; border-color:var(--brand); }
+  .live-btn.primary:hover{ background:var(--brand-dark); }
+  .scope-toggle{ display:flex; }
+  .scope-toggle .live-btn{ border-radius:0; }
+  .scope-toggle .live-btn:first-child{ border-radius:3px 0 0 3px; }
+  .scope-toggle .live-btn:last-child{ border-radius:0 3px 3px 0; border-left:none; }
+  .scope-toggle .live-btn.active{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .live-pager{ display:flex; gap:8px; align-items:center; margin-top:12px; justify-content:flex-end; font-size:12.5px; color:var(--ink-soft); }
+  td.num{ text-align:right; font-family:'Space Grotesk',sans-serif; }
+
   @media (max-width: 980px){
     .bento{ grid-template-columns: repeat(2,1fr); }
     .modgrid{ grid-template-columns: repeat(2,1fr); }
@@ -644,8 +667,70 @@
     <section class="view" id="view-dashboard"><div class="panel empty-note">หน้าแดชบอร์ดแบบละเอียด — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
     <section class="view" id="view-reports"><div class="panel empty-note">รายงานบริหาร — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/ผู้บริหาร)</div></section>
     <section class="view" id="view-alerts"><div class="panel empty-note">แจ้งเตือน — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
-    <section class="view" id="view-receive"><div class="panel empty-note">ฟอร์มรับสินค้าเข้า — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
-    <section class="view" id="view-dispatch"><div class="panel empty-note">ฟอร์มจ่ายสินค้าออก — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-receive">
+      <div class="live-toolbar">
+        <div class="scope-toggle">
+          <button class="live-btn active" data-live="receive" data-scope-btn="all">All</button>
+          <button class="live-btn" data-live="receive" data-scope-btn="warehouse">Warehouse</button>
+        </div>
+        <button class="live-btn" data-live="receive" data-action="reset">Reset Filter</button>
+        <span style="flex:1"></span>
+        <button class="live-btn primary" data-live="receive" data-action="export">Export as CSV</button>
+      </div>
+      <div class="live-filters">
+        <input type="date" class="live-input" data-live="receive" data-filter="dateFrom" title="Document date from">
+        <input type="date" class="live-input" data-live="receive" data-filter="dateTo" title="Document date to">
+        <input type="text" class="live-input" data-live="receive" data-filter="sender" placeholder="Sender">
+        <input type="text" class="live-input" data-live="receive" data-filter="receiver" placeholder="Receiver">
+        <input type="text" class="live-input" data-live="receive" data-filter="invoice" placeholder="Invoice">
+      </div>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr><th>BookedDate</th><th>DocumentDate</th><th>Sender</th><th>Receiver</th><th>Invoice</th><th>Pair</th><th>Accessories</th><th>ToTalAmount</th></tr>
+          </thead>
+          <tbody id="receiveBody"><tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="live-pager">
+        <span id="receiveStatus"></span>
+        <button class="live-btn" data-live="receive" data-action="prev">&larr; ก่อนหน้า</button>
+        <button class="live-btn" data-live="receive" data-action="next">ถัดไป &rarr;</button>
+      </div>
+      <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้</div>
+    </section>
+    <section class="view" id="view-dispatch">
+      <div class="live-toolbar">
+        <div class="scope-toggle">
+          <button class="live-btn active" data-live="dispatch" data-scope-btn="all">All</button>
+          <button class="live-btn" data-live="dispatch" data-scope-btn="warehouse">Warehouse</button>
+        </div>
+        <button class="live-btn" data-live="dispatch" data-action="reset">Reset Filter</button>
+        <span style="flex:1"></span>
+        <button class="live-btn primary" data-live="dispatch" data-action="export">Export as CSV</button>
+      </div>
+      <div class="live-filters">
+        <input type="date" class="live-input" data-live="dispatch" data-filter="dateFrom" title="Document date from">
+        <input type="date" class="live-input" data-live="dispatch" data-filter="dateTo" title="Document date to">
+        <input type="text" class="live-input" data-live="dispatch" data-filter="sender" placeholder="Sender">
+        <input type="text" class="live-input" data-live="dispatch" data-filter="receiver" placeholder="Receiver">
+        <input type="text" class="live-input" data-live="dispatch" data-filter="invoice" placeholder="Invoice">
+      </div>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr><th>BookedDate</th><th>DocumentDate</th><th>Sender</th><th>Receiver</th><th>Invoice</th><th>Pair</th><th>Accessories</th><th>ToTalAmount</th></tr>
+          </thead>
+          <tbody id="dispatchBody"><tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="live-pager">
+        <span id="dispatchStatus"></span>
+        <button class="live-btn" data-live="dispatch" data-action="prev">&larr; ก่อนหน้า</button>
+        <button class="live-btn" data-live="dispatch" data-action="next">ถัดไป &rarr;</button>
+      </div>
+      <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้</div>
+    </section>
     <section class="view" id="view-transfer"><div class="panel empty-note">ย้ายโลเคชั่น — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-return"><div class="panel empty-note">รับคืนสินค้า — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-issue"><div class="panel empty-note">เบิกใช้ภายใน — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
@@ -703,6 +788,123 @@ function roleLabel(role){
   return { admin: 'ผู้ดูแลระบบ', warehouse_staff: 'เจ้าหน้าที่คลังสินค้า', viewer: 'ผู้บริหาร / ดูรายงาน' }[role] || role;
 }
 
+// ─── Live Dispatch/Receiving (queries MySQL directly via the LAN-only
+// api-server.js — only reachable when this page is opened from inside the
+// office network, e.g. http://<lan-ip>:3001, not from the public link) ───
+const LIVE_TABLE = { dispatch: 'dispatch', receive: 'receiving' };
+const livePageSize = 100;
+const liveState = {
+  dispatch: { page: 1, scope: 'all', rows: [], loaded: false },
+  receive: { page: 1, scope: 'all', rows: [], loaded: false },
+};
+
+function liveFilters(view){
+  const out = { scope: liveState[view].scope, page: liveState[view].page, pageSize: livePageSize };
+  document.querySelectorAll(`[data-live="${view}"][data-filter]`).forEach(el => {
+    const v = el.value.trim();
+    if (v) out[el.getAttribute('data-filter')] = v;
+  });
+  return out;
+}
+
+function liveFmtDate(v){ return v ? String(v).slice(0, 10) : '—'; }
+function liveFmtNum(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '—';
+}
+
+async function loadLive(view){
+  const table = LIVE_TABLE[view];
+  const bodyEl = document.getElementById(view + 'Body');
+  bodyEl.innerHTML = '<tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr>';
+
+  const qs = new URLSearchParams(Object.entries(liveFilters(view)));
+  let data;
+  try {
+    const res = await fetch(`/api/${table}?${qs.toString()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    data = await res.json();
+  } catch (err) {
+    bodyEl.innerHTML = `<tr><td colspan="8" class="empty-note">โหลดข้อมูลไม่สำเร็จ — หน้านี้ใช้ได้เฉพาะเมื่อเปิดจากในวง LAN ของออฟฟิศ (${err.message})</td></tr>`;
+    document.getElementById(view + 'Status').textContent = '';
+    return;
+  }
+
+  const rows = data.rows || [];
+  liveState[view].rows = rows;
+
+  bodyEl.innerHTML = rows.length === 0
+    ? '<tr><td colspan="8" class="empty-note">ไม่พบข้อมูล</td></tr>'
+    : rows.map(r => `
+      <tr>
+        <td>${liveFmtDate(r.bookedDate)}</td>
+        <td>${liveFmtDate(r.documentDate)}</td>
+        <td>${r.sender ?? '—'}</td>
+        <td>${r.receiver ?? '—'}</td>
+        <td class="mono">${r.invoice ?? '—'}</td>
+        <td class="num">${liveFmtNum(r.pair)}</td>
+        <td class="num">${liveFmtNum(r.accessories)}</td>
+        <td class="num">${liveFmtNum(r.totalAmount)}</td>
+      </tr>`).join('');
+
+  const total = data.total ?? rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / livePageSize));
+  document.getElementById(view + 'Status').textContent =
+    `หน้า ${liveState[view].page}/${totalPages} — ทั้งหมด ${total.toLocaleString('th-TH')} invoice`;
+}
+
+function liveExportCsv(view){
+  const rows = liveState[view].rows;
+  if (!rows.length) return;
+  const header = ['BookedDate','DocumentDate','Sender','Receiver','Invoice','Pair','Accessories','ToTalAmount'];
+  const lines = [header.join(',')].concat(rows.map(r => [
+    liveFmtDate(r.bookedDate), liveFmtDate(r.documentDate), r.sender ?? '', r.receiver ?? '',
+    r.invoice ?? '', r.pair ?? 0, r.accessories ?? 0, r.totalAmount ?? 0,
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')));
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${LIVE_TABLE[view]}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.querySelectorAll('[data-live][data-filter]').forEach(el => {
+  el.addEventListener('change', () => {
+    const view = el.getAttribute('data-live');
+    liveState[view].page = 1;
+    loadLive(view);
+  });
+});
+document.querySelectorAll('[data-live][data-scope-btn]').forEach(el => {
+  el.addEventListener('click', () => {
+    const view = el.getAttribute('data-live');
+    const scope = el.getAttribute('data-scope-btn');
+    liveState[view].scope = scope;
+    liveState[view].page = 1;
+    document.querySelectorAll(`[data-live="${view}"][data-scope-btn]`).forEach(btn =>
+      btn.classList.toggle('active', btn.getAttribute('data-scope-btn') === scope));
+    loadLive(view);
+  });
+});
+document.querySelectorAll('[data-live][data-action]').forEach(el => {
+  el.addEventListener('click', () => {
+    const view = el.getAttribute('data-live');
+    const action = el.getAttribute('data-action');
+    if (action === 'reset') {
+      document.querySelectorAll(`[data-live="${view}"][data-filter]`).forEach(input => input.value = '');
+      liveState[view].page = 1;
+      loadLive(view);
+    } else if (action === 'export') {
+      liveExportCsv(view);
+    } else if (action === 'prev') {
+      if (liveState[view].page > 1) { liveState[view].page--; loadLive(view); }
+    } else if (action === 'next') {
+      liveState[view].page++; loadLive(view);
+    }
+  });
+});
+
 // ─── View switching ──────────────────────────────────────────────
 function showView(name){
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -711,6 +913,8 @@ function showView(name){
   if (target) target.classList.add('active');
   document.querySelectorAll('.nav-item[data-view="' + name + '"]').forEach(n => n.classList.add('active'));
   if (name === 'users') loadUsers();
+  if (name === 'dispatch') loadLive('dispatch');
+  if (name === 'receive') loadLive('receive');
 }
 
 document.addEventListener('click', (e) => {

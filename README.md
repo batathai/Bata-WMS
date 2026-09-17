@@ -66,14 +66,16 @@ pull all rows again (upsert means this is safe, just slower).
 
 ## Live Dispatch/Receiving API (LAN only)
 
-`api-server.js` is a separate, optional tool: it queries the source MySQL
-database directly on every request (no sync delay) and serves a small web
-page for browsing Dispatch/Receiving grouped by invoice, with filters and
-CSV export.
+`api-server.js` serves the main app (`Index/index.html` — same
+login/roles/dashboard as the public GitHub Pages site) plus a live API that
+queries the source MySQL database directly on every request (no sync
+delay). The "จ่ายสินค้าออก" (Dispatch) and "รับสินค้าเข้า" (Receiving) menus
+call this API for a grouped-by-invoice table with filters and CSV export;
+every other menu still talks to Supabase, same as the public site.
 
-**This is for use inside the office LAN only** — it has no login/auth yet,
-and talks straight to the production MySQL database. Do not port-forward
-its port to the internet.
+**This is for use inside the office LAN only** — the API routes have no
+login/auth of their own, and talk straight to the production MySQL
+database. Do not port-forward its port to the internet.
 
 1. Same `.env` as above (uses `MYSQL_HOST`/`MYSQL_USER`/`MYSQL_PASSWORD`/`MYSQL_DATABASE`).
 2. `npm install` (adds `express` on top of the sync dependencies).
@@ -81,6 +83,9 @@ its port to the internet.
    (change with `API_PORT` in `.env`).
 4. From another PC on the same network, find this machine's LAN IP
    (`ipconfig` → IPv4 Address) and open `http://<that-ip>:3001` in a browser.
+   Opened from the public GitHub Pages link instead, Dispatch/Receiving will
+   show a "can't reach the LAN API" message — expected, since that page is
+   served over HTTPS and can't call this plain-HTTP local API.
 
 `Pair` = sum of `items` where `isFootware = 1`, `Accessories` = sum of
 `items` where `isFootware = 0`, both grouped by `invoice`.

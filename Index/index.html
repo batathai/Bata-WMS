@@ -1164,7 +1164,6 @@ async function loadUsers(){
 }
 
 // ─── Boot: restore session if already logged in ──────────────
-document.getElementById('homeDateFilter').value = homeTodayStr();
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (session) await onSignedIn();

@@ -697,7 +697,7 @@
         <button class="live-btn" data-live="receive" data-action="prev">&larr; ก่อนหน้า</button>
         <button class="live-btn" data-live="receive" data-action="next">ถัดไป &rarr;</button>
       </div>
-      <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้</div>
+      <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้ · ตารางนี้มีข้อมูลหลักล้านแถว จึงกรองวันที่เป็น "วันนี้" เป็นค่าเริ่มต้นเสมอเพื่อความเร็ว ขยายช่วงวันที่ได้เองแต่จะโหลดช้าลงตามจำนวนแถว</div>
     </section>
     <section class="view" id="view-dispatch">
       <div class="live-toolbar">
@@ -729,7 +729,7 @@
         <button class="live-btn" data-live="dispatch" data-action="prev">&larr; ก่อนหน้า</button>
         <button class="live-btn" data-live="dispatch" data-action="next">ถัดไป &rarr;</button>
       </div>
-      <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้</div>
+      <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้ · ตารางนี้มีข้อมูลหลักล้านแถว จึงกรองวันที่เป็น "วันนี้" เป็นค่าเริ่มต้นเสมอเพื่อความเร็ว ขยายช่วงวันที่ได้เองแต่จะโหลดช้าลงตามจำนวนแถว</div>
     </section>
     <section class="view" id="view-transfer"><div class="panel empty-note">ย้ายโลเคชั่น — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-return"><div class="panel empty-note">รับคืนสินค้า — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
@@ -797,6 +797,14 @@ const liveState = {
   dispatch: { page: 1, scope: 'all', rows: [], loaded: false },
   receive: { page: 1, scope: 'all', rows: [], loaded: false },
 };
+
+// dispatch/receiving each hold millions of rows — always default to
+// today so the query stays bounded by the documentDate index instead of
+// grouping the entire table. Widening the range is the user's choice.
+function liveTodayStr(){ return new Date().toISOString().slice(0, 10); }
+document.querySelectorAll('[data-filter="dateFrom"], [data-filter="dateTo"]').forEach(el => {
+  el.value = liveTodayStr();
+});
 
 function liveFilters(view){
   const out = { scope: liveState[view].scope, page: liveState[view].page, pageSize: livePageSize };
@@ -892,7 +900,10 @@ document.querySelectorAll('[data-live][data-action]').forEach(el => {
     const view = el.getAttribute('data-live');
     const action = el.getAttribute('data-action');
     if (action === 'reset') {
-      document.querySelectorAll(`[data-live="${view}"][data-filter]`).forEach(input => input.value = '');
+      document.querySelectorAll(`[data-live="${view}"][data-filter]`).forEach(input => {
+        const f = input.getAttribute('data-filter');
+        input.value = (f === 'dateFrom' || f === 'dateTo') ? liveTodayStr() : '';
+      });
       liveState[view].page = 1;
       loadLive(view);
     } else if (action === 'export') {

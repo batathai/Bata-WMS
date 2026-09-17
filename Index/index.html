@@ -571,9 +571,12 @@
     <section class="view active" id="view-home">
       <section class="hero">
         <div class="lede">
-          <div class="kicker">สรุปสถานะวันนี้</div>
+          <div class="kicker" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span>สรุปสถานะ</span>
+            <input type="date" id="homeDateFilter" class="live-input" style="width:auto; padding:4px 8px; font-size:12.5px;">
+          </div>
           <h2 id="heroHeadline">กำลังโหลดข้อมูลวันนี้…</h2>
-          <p>ตัวเลขด้านล่างดึงจากฐานข้อมูลจริง (dispatch / receiving) แบบสด — อัปเดตทุกครั้งที่เข้าหน้านี้</p>
+          <p>ตัวเลขด้านล่างดึงจากฐานข้อมูลจริง (dispatch / receiving) ของวันที่เลือก — เปลี่ยนวันที่ด้านบนเพื่อย้อนดูวันอื่น</p>
         </div>
         <div class="spark-wrap">
           <div class="spark" id="sparkBars"></div>
@@ -583,17 +586,17 @@
 
       <div class="bento">
         <div class="kpi">
-          <div class="label">รายการจ่ายออกวันนี้ (Dispatch)</div>
+          <div class="label">รายการจ่ายออก (Dispatch)</div>
           <div class="value num" id="kpiDispatch">—</div>
           <div class="delta" id="kpiDispatchDelta"></div>
         </div>
         <div class="kpi">
-          <div class="label">รายการรับเข้าวันนี้ (Receiving)</div>
+          <div class="label">รายการรับเข้า (Receiving)</div>
           <div class="value num" id="kpiReceiving">—</div>
           <div class="delta" id="kpiReceivingDelta"></div>
         </div>
         <div class="kpi">
-          <div class="label">มูลค่ารวมวันนี้ (บาท)</div>
+          <div class="label">มูลค่ารวม (บาท)</div>
           <div class="value num" id="kpiAmount">—</div>
           <div class="delta">รวม Dispatch + Receiving</div>
         </div>
@@ -1011,15 +1014,19 @@ async function onSignedIn(){
   loadHomeData();
 }
 
-// ─── Home KPIs: live from Supabase ────────────────────────────────
+// ─── Home KPIs: live from Supabase (for the date picked in homeDateFilter) ─
+function homeTodayStr(){ return new Date().toISOString().slice(0, 10); }
+
 async function loadHomeData(){
-  const todayStr = new Date().toISOString().slice(0,10);
+  const dateInput = document.getElementById('homeDateFilter');
+  const dateStr = dateInput.value || homeTodayStr();
+  const isToday = dateStr === homeTodayStr();
 
   const [dispatchRes, receivingRes] = await Promise.all([
     sb.from('dispatch').select('id, amount, invoice, receiver, article, size, items, document_date', { count: 'exact' })
-      .eq('document_date', todayStr),
+      .eq('document_date', dateStr),
     sb.from('receiving').select('id, amount, invoice, sender, article, size, items, document_date', { count: 'exact' })
-      .eq('document_date', todayStr),
+      .eq('document_date', dateStr),
   ]);
 
   const dispatchRows = dispatchRes.data || [];
@@ -1033,9 +1040,10 @@ async function loadHomeData(){
 
   const heroEl = document.getElementById('heroHeadline');
   const total = dispatchRows.length + receivingRows.length;
+  const dayLabel = isToday ? 'วันนี้' : 'วันที่ ' + new Date(dateStr).toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'numeric' }) + ' ';
   heroEl.textContent = total > 0
-    ? `วันนี้มีรายการเคลื่อนไหวแล้ว ${total.toLocaleString('th-TH')} รายการ`
-    : 'วันนี้ยังไม่มีรายการเคลื่อนไหวในระบบ';
+    ? `${dayLabel}มีรายการเคลื่อนไหวแล้ว ${total.toLocaleString('th-TH')} รายการ`
+    : `${dayLabel}ยังไม่มีรายการเคลื่อนไหวในระบบ`;
 
   // last synced_at across both tables, if any rows exist at all
   const { data: lastSynced } = await sb
@@ -1061,7 +1069,7 @@ async function loadHomeData(){
 
   const tbody = document.getElementById('recentDocsBody');
   if (combined.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-note">ยังไม่มีเอกสารของวันนี้</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-note">ยังไม่มีเอกสารของ${dayLabel}</td></tr>`;
   } else {
     tbody.innerHTML = combined.map(r => `
       <tr>
@@ -1074,6 +1082,9 @@ async function loadHomeData(){
       </tr>`).join('');
   }
 }
+
+document.getElementById('homeDateFilter').value = homeTodayStr();
+document.getElementById('homeDateFilter').addEventListener('change', loadHomeData);
 
 // ─── Admin: user/role management ─────────────────────────────────
 async function loadUsers(){

@@ -824,9 +824,21 @@ function liveFmtNum(v){
 async function loadLive(view){
   const table = LIVE_TABLE[view];
   const bodyEl = document.getElementById(view + 'Body');
+  const filters = liveFilters(view);
+
+  // dispatch/receiving hold millions of rows — never query with no date
+  // filter at all (would scan the whole table). Show an empty state and
+  // wait for the user to pick a date range instead.
+  if (!filters.dateFrom && !filters.dateTo) {
+    bodyEl.innerHTML = '<tr><td colspan="8" class="empty-note">เลือกช่วงวันที่เพื่อดูข้อมูล</td></tr>';
+    liveState[view].rows = [];
+    document.getElementById(view + 'Status').textContent = 'หน้า 0/0 — ทั้งหมด 0 invoice';
+    return;
+  }
+
   bodyEl.innerHTML = '<tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr>';
 
-  const qs = new URLSearchParams(Object.entries(liveFilters(view)));
+  const qs = new URLSearchParams(Object.entries(filters));
   let data;
   try {
     const res = await fetch(`/api/${table}?${qs.toString()}`);
@@ -900,10 +912,7 @@ document.querySelectorAll('[data-live][data-action]').forEach(el => {
     const view = el.getAttribute('data-live');
     const action = el.getAttribute('data-action');
     if (action === 'reset') {
-      document.querySelectorAll(`[data-live="${view}"][data-filter]`).forEach(input => {
-        const f = input.getAttribute('data-filter');
-        input.value = (f === 'dateFrom' || f === 'dateTo') ? liveTodayStr() : '';
-      });
+      document.querySelectorAll(`[data-live="${view}"][data-filter]`).forEach(input => { input.value = ''; });
       liveState[view].scope = 'all';
       document.querySelectorAll(`[data-live="${view}"][data-scope-btn]`).forEach(btn =>
         btn.classList.toggle('active', btn.getAttribute('data-scope-btn') === 'all'));

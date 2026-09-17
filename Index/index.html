@@ -904,6 +904,9 @@ document.querySelectorAll('[data-live][data-action]').forEach(el => {
         const f = input.getAttribute('data-filter');
         input.value = (f === 'dateFrom' || f === 'dateTo') ? liveTodayStr() : '';
       });
+      liveState[view].scope = 'all';
+      document.querySelectorAll(`[data-live="${view}"][data-scope-btn]`).forEach(btn =>
+        btn.classList.toggle('active', btn.getAttribute('data-scope-btn') === 'all'));
       liveState[view].page = 1;
       loadLive(view);
     } else if (action === 'export') {

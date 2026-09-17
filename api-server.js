@@ -38,33 +38,16 @@ function getPool() {
   return pool;
 }
 
-// ─── Build a filtered, invoice-grouped query for dispatch/receiving ──────
-// One row per invoice: Pair = sum(items) where isFootware, Accessories =
-// sum(items) where not isFootware, ToTalAmount = sum(amount).
-function buildQuery(table, filters) {
+// ─── Shared WHERE clause for all three queries below ─────────────────────
+function buildWhere(filters) {
   const where = [];
   const params = [];
 
-  if (filters.dateFrom) {
-    where.push('documentDate >= ?');
-    params.push(filters.dateFrom);
-  }
-  if (filters.dateTo) {
-    where.push('documentDate <= ?');
-    params.push(filters.dateTo);
-  }
-  if (filters.sender) {
-    where.push('sender LIKE ?');
-    params.push(`%${filters.sender}%`);
-  }
-  if (filters.receiver) {
-    where.push('receiver LIKE ?');
-    params.push(`%${filters.receiver}%`);
-  }
-  if (filters.invoice) {
-    where.push('invoice LIKE ?');
-    params.push(`%${filters.invoice}%`);
-  }
+  if (filters.dateFrom) { where.push('documentDate >= ?'); params.push(filters.dateFrom); }
+  if (filters.dateTo) { where.push('documentDate <= ?'); params.push(filters.dateTo); }
+  if (filters.sender) { where.push('sender LIKE ?'); params.push(`%${filters.sender}%`); }
+  if (filters.receiver) { where.push('receiver LIKE ?'); params.push(`%${filters.receiver}%`); }
+  if (filters.invoice) { where.push('invoice LIKE ?'); params.push(`%${filters.invoice}%`); }
   // "Warehouse" scope toggle from the mock-up — adjust this LIKE pattern if
   // your warehouse code prefix differs.
   if (filters.scope === 'warehouse') {
@@ -72,7 +55,13 @@ function buildQuery(table, filters) {
     params.push('%Warehouse%', '%Warehouse%');
   }
 
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  return { whereSql: where.length ? `WHERE ${where.join(' AND ')}` : '', params };
+}
+
+// One row per invoice: Pair = sum(items) where isFootware, Accessories =
+// sum(items) where not isFootware, ToTalAmount = sum(amount).
+function buildQuery(table, filters) {
+  const { whereSql, params } = buildWhere(filters);
 
   const sql = `
     SELECT
@@ -99,21 +88,31 @@ function buildQuery(table, filters) {
 }
 
 function buildCountQuery(table, filters) {
-  const where = [];
-  const params = [];
-
-  if (filters.dateFrom) { where.push('documentDate >= ?'); params.push(filters.dateFrom); }
-  if (filters.dateTo) { where.push('documentDate <= ?'); params.push(filters.dateTo); }
-  if (filters.sender) { where.push('sender LIKE ?'); params.push(`%${filters.sender}%`); }
-  if (filters.receiver) { where.push('receiver LIKE ?'); params.push(`%${filters.receiver}%`); }
-  if (filters.invoice) { where.push('invoice LIKE ?'); params.push(`%${filters.invoice}%`); }
-  if (filters.scope === 'warehouse') {
-    where.push('(sender LIKE ? OR receiver LIKE ?)');
-    params.push('%Warehouse%', '%Warehouse%');
-  }
-
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const { whereSql, params } = buildWhere(filters);
   const sql = `SELECT COUNT(DISTINCT invoice) AS total FROM \`${table}\` ${whereSql}`;
+  return { sql, params };
+}
+
+// One row per documentDate within the filtered range — same Pair/
+// Accessories/ToTalAmount math as buildQuery, just grouped by day instead
+// of by invoice. Not paginated: a date range only ever has a handful of
+// distinct days, even when it spans months.
+function buildDailyQuery(table, filters) {
+  const { whereSql, params } = buildWhere(filters);
+
+  const sql = `
+    SELECT
+      documentDate AS date,
+      COUNT(DISTINCT invoice) AS invoiceCount,
+      SUM(CASE WHEN isFootware = 1 THEN items ELSE 0 END) AS pair,
+      SUM(CASE WHEN isFootware = 0 THEN items ELSE 0 END) AS accessories,
+      SUM(amount) AS totalAmount
+    FROM \`${table}\`
+    ${whereSql}
+    GROUP BY documentDate
+    ORDER BY documentDate DESC
+  `;
+
   return { sql, params };
 }
 
@@ -130,11 +129,13 @@ app.get('/api/:table', async (req, res) => {
     const conn = getPool();
     const { sql, params } = buildQuery(table, req.query);
     const { sql: countSql, params: countParams } = buildCountQuery(table, req.query);
+    const { sql: dailySql, params: dailyParams } = buildDailyQuery(table, req.query);
 
     const [rows] = await conn.execute(sql, params);
     const [[{ total }]] = await conn.execute(countSql, countParams);
+    const [daily] = await conn.execute(dailySql, dailyParams);
 
-    res.json({ rows, total });
+    res.json({ rows, total, daily });
   } catch (err) {
     console.error(`[GET /api/${table}] failed:`, err);
     res.status(500).json({ error: 'Query failed — see server log' });

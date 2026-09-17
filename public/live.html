@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<title>Bata WMS — Live</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { --red: #c8102e; --border: #e2e2e2; --bg: #f4f5f7; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; background: var(--bg); color: #1a1a1a; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--border); }
+  header a { color: var(--red); text-decoration: none; font-size: 13px; }
+  h1 { font-size: 18px; margin: 0; }
+  main { padding: 20px 24px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  input, select, button { font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+  button { cursor: pointer; }
+  button.primary { background: var(--red); color: #fff; border-color: var(--red); }
+  .scope-toggle button { border-radius: 0; }
+  .scope-toggle button:first-child { border-radius: 6px 0 0 6px; }
+  .scope-toggle button:last-child { border-radius: 0 6px 6px 0; }
+  .scope-toggle button.active { background: #333; color: #fff; }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
+  th, td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  th { cursor: pointer; user-select: none; font-size: 13px; color: #555; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .panel { background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: auto; }
+  .empty-note { padding: 24px; text-align: center; color: #888; }
+  .status { font-size: 12px; color: #888; margin-top: 8px; }
+  .pager { display: flex; gap: 8px; align-items: center; margin-top: 12px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="pageTitle">Dispatch</h1>
+  <a href="index.html">&larr; กลับหน้าหลัก</a>
+</header>
+<main>
+  <div class="toolbar">
+    <div class="scope-toggle">
+      <button id="scopeAll" class="active">All</button>
+      <button id="scopeWarehouse">Warehouse</button>
+    </div>
+    <button id="resetBtn">Reset Filter</button>
+    <span style="flex:1"></span>
+    <button id="exportBtn" class="primary">Export as CSV</button>
+  </div>
+
+  <div class="filters">
+    <input type="date" id="fDateFrom" title="Document date from" />
+    <input type="date" id="fDateTo" title="Document date to" />
+    <input type="text" id="fSender" placeholder="Sender" />
+    <input type="text" id="fReceiver" placeholder="Receiver" />
+    <input type="text" id="fInvoice" placeholder="Invoice" />
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>BookedDate</th>
+          <th>DocumentDate</th>
+          <th>Sender</th>
+          <th>Receiver</th>
+          <th>Invoice</th>
+          <th class="num">Pair</th>
+          <th class="num">Accessories</th>
+          <th class="num">ToTalAmount</th>
+        </tr>
+      </thead>
+      <tbody id="rows">
+        <tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pager">
+    <span class="status" id="statusText"></span>
+    <button id="prevBtn">&larr; ก่อนหน้า</button>
+    <button id="nextBtn">ถัดไป &rarr;</button>
+  </div>
+</main>
+
+<script>
+const params = new URLSearchParams(location.search);
+const table = params.get('table') === 'receiving' ? 'receiving' : 'dispatch';
+document.getElementById('pageTitle').textContent = table === 'receiving' ? 'Receiving' : 'Dispatch';
+document.title = 'Bata WMS — ' + document.getElementById('pageTitle').textContent;
+
+let page = 1;
+const pageSize = 100;
+let scope = 'all';
+let lastRows = [];
+
+function currentFilters() {
+  return {
+    dateFrom: document.getElementById('fDateFrom').value,
+    dateTo: document.getElementById('fDateTo').value,
+    sender: document.getElementById('fSender').value.trim(),
+    receiver: document.getElementById('fReceiver').value.trim(),
+    invoice: document.getElementById('fInvoice').value.trim(),
+    scope,
+    page,
+    pageSize,
+  };
+}
+
+async function load() {
+  const rowsEl = document.getElementById('rows');
+  rowsEl.innerHTML = '<tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr>';
+
+  const qs = new URLSearchParams(
+    Object.entries(currentFilters()).filter(([, v]) => v !== '' && v != null)
+  );
+
+  let data;
+  try {
+    const res = await fetch(`/api/${table}?${qs.toString()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    data = await res.json();
+  } catch (err) {
+    rowsEl.innerHTML = `<tr><td colspan="8" class="empty-note">โหลดข้อมูลไม่สำเร็จ — เช็คว่า api-server กำลังรันอยู่ (${err.message})</td></tr>`;
+    return;
+  }
+
+  lastRows = data.rows || [];
+  if (lastRows.length === 0) {
+    rowsEl.innerHTML = '<tr><td colspan="8" class="empty-note">ไม่พบข้อมูล</td></tr>';
+  } else {
+    rowsEl.innerHTML = lastRows.map(r => `
+      <tr>
+        <td>${fmtDate(r.bookedDate)}</td>
+        <td>${fmtDate(r.documentDate)}</td>
+        <td>${r.sender ?? '—'}</td>
+        <td>${r.receiver ?? '—'}</td>
+        <td>${r.invoice ?? '—'}</td>
+        <td class="num">${fmtNum(r.pair)}</td>
+        <td class="num">${fmtNum(r.accessories)}</td>
+        <td class="num">${fmtNum(r.totalAmount)}</td>
+      </tr>`).join('');
+  }
+
+  const total = data.total ?? lastRows.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  document.getElementById('statusText').textContent =
+    `หน้า ${page}/${totalPages} — ทั้งหมด ${total.toLocaleString('th-TH')} invoice`;
+  document.getElementById('prevBtn').disabled = page <= 1;
+  document.getElementById('nextBtn').disabled = page >= totalPages;
+}
+
+function fmtDate(v) {
+  if (!v) return '—';
+  return String(v).slice(0, 10);
+}
+function fmtNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '—';
+}
+
+function exportCsv() {
+  if (lastRows.length === 0) return;
+  const header = ['BookedDate','DocumentDate','Sender','Receiver','Invoice','Pair','Accessories','ToTalAmount'];
+  const lines = [header.join(',')].concat(lastRows.map(r => [
+    fmtDate(r.bookedDate), fmtDate(r.documentDate), r.sender ?? '', r.receiver ?? '',
+    r.invoice ?? '', r.pair ?? 0, r.accessories ?? 0, r.totalAmount ?? 0,
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')));
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${table}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.querySelectorAll('.filters input').forEach(el => {
+  el.addEventListener('change', () => { page = 1; load(); });
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.querySelectorAll('.filters input').forEach(el => el.value = '');
+  page = 1;
+  load();
+});
+document.getElementById('scopeAll').addEventListener('click', () => setScope('all'));
+document.getElementById('scopeWarehouse').addEventListener('click', () => setScope('warehouse'));
+function setScope(s) {
+  scope = s;
+  page = 1;
+  document.getElementById('scopeAll').classList.toggle('active', s === 'all');
+  document.getElementById('scopeWarehouse').classList.toggle('active', s === 'warehouse');
+  load();
+}
+document.getElementById('prevBtn').addEventListener('click', () => { if (page > 1) { page--; load(); } });
+document.getElementById('nextBtn').addEventListener('click', () => { page++; load(); });
+document.getElementById('exportBtn').addEventListener('click', exportCsv);
+
+load();
+</script>
+</body>
+</html>

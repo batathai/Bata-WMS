@@ -63,3 +63,24 @@ schedule.
 
 Delete `sync-state.json` and run again — it will treat it as a first run and
 pull all rows again (upsert means this is safe, just slower).
+
+## Live Dispatch/Receiving API (LAN only)
+
+`api-server.js` is a separate, optional tool: it queries the source MySQL
+database directly on every request (no sync delay) and serves a small web
+page for browsing Dispatch/Receiving grouped by invoice, with filters and
+CSV export.
+
+**This is for use inside the office LAN only** — it has no login/auth yet,
+and talks straight to the production MySQL database. Do not port-forward
+its port to the internet.
+
+1. Same `.env` as above (uses `MYSQL_HOST`/`MYSQL_USER`/`MYSQL_PASSWORD`/`MYSQL_DATABASE`).
+2. `npm install` (adds `express` on top of the sync dependencies).
+3. `npm run start:api` — starts on `http://localhost:3001` by default
+   (change with `API_PORT` in `.env`).
+4. From another PC on the same network, find this machine's LAN IP
+   (`ipconfig` → IPv4 Address) and open `http://<that-ip>:3001` in a browser.
+
+`Pair` = sum of `items` where `isFootware = 1`, `Accessories` = sum of
+`items` where `isFootware = 0`, both grouped by `invoice`.

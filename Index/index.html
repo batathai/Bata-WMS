@@ -1066,11 +1066,14 @@ async function loadHomeData(){
   const dateStr = dateInput.value || homeTodayStr();
   const isToday = dateStr === homeTodayStr();
 
+  // Supabase/PostgREST caps a query at 1000 rows by default — raise it well
+  // above any realistic single-day volume so the amount total and headline
+  // count below aren't silently undercounted on high-volume days.
   const [dispatchRes, receivingRes] = await Promise.all([
     sb.from('dispatch').select('id, amount, invoice, receiver, article, size, items, document_date', { count: 'exact' })
-      .eq('document_date', dateStr),
+      .eq('document_date', dateStr).limit(20000),
     sb.from('receiving').select('id, amount, invoice, sender, article, size, items, document_date', { count: 'exact' })
-      .eq('document_date', dateStr),
+      .eq('document_date', dateStr).limit(20000),
   ]);
 
   const dispatchRows = dispatchRes.data || [];

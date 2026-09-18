@@ -426,7 +426,7 @@
   .scope-toggle .live-btn:last-child{ border-radius:0 3px 3px 0; border-left:none; }
   .scope-toggle .live-btn.active{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
   .live-pager{ display:flex; gap:8px; align-items:center; margin-top:12px; justify-content:flex-end; font-size:12.5px; color:var(--ink-soft); }
-  td.num{ text-align:right; font-family:'Space Grotesk',sans-serif; }
+  td.num, th.num{ text-align:right; font-family:'Space Grotesk',sans-serif; }
 
   @media (max-width: 980px){
     .bento{ grid-template-columns: repeat(2,1fr); }
@@ -695,7 +695,7 @@
       <div class="panel" style="margin-bottom:22px;">
         <table>
           <thead>
-            <tr><th>วันที่</th><th>จำนวนใบ</th><th>คู่</th><th>อุปกรณ์เสริม</th><th>ยอดรวม</th></tr>
+            <tr><th>วันที่</th><th class="num">จำนวนใบ</th><th class="num">คู่</th><th class="num">อุปกรณ์เสริม</th><th class="num">ยอดรวม</th></tr>
           </thead>
           <tbody id="dispatchDailyBody"><tr><td colspan="5" class="empty-note">กำลังโหลด…</td></tr></tbody>
         </table>
@@ -703,7 +703,7 @@
       <div class="panel">
         <table>
           <thead>
-            <tr><th>วันที่บันทึก</th><th>วันที่เอกสาร</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>เลขที่เอกสาร</th><th>คู่</th><th>อุปกรณ์เสริม</th><th>ยอดรวม</th></tr>
+            <tr><th>วันที่บันทึก</th><th>วันที่เอกสาร</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>เลขที่เอกสาร</th><th class="num">คู่</th><th class="num">อุปกรณ์เสริม</th><th class="num">ยอดรวม</th></tr>
           </thead>
           <tbody id="dispatchBody"><tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr></tbody>
         </table>
@@ -739,7 +739,7 @@
       <div class="panel" style="margin-bottom:22px;">
         <table>
           <thead>
-            <tr><th>วันที่</th><th>จำนวนใบ</th><th>คู่</th><th>อุปกรณ์เสริม</th><th>ยอดรวม</th></tr>
+            <tr><th>วันที่</th><th class="num">จำนวนใบ</th><th class="num">คู่</th><th class="num">อุปกรณ์เสริม</th><th class="num">ยอดรวม</th></tr>
           </thead>
           <tbody id="transferDailyBody"><tr><td colspan="5" class="empty-note">กำลังโหลด…</td></tr></tbody>
         </table>
@@ -747,7 +747,7 @@
       <div class="panel">
         <table>
           <thead>
-            <tr><th>วันที่บันทึก</th><th>วันที่เอกสาร</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>เลขที่เอกสาร</th><th>คู่</th><th>อุปกรณ์เสริม</th><th>ยอดรวม</th></tr>
+            <tr><th>วันที่บันทึก</th><th>วันที่เอกสาร</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>เลขที่เอกสาร</th><th class="num">คู่</th><th class="num">อุปกรณ์เสริม</th><th class="num">ยอดรวม</th></tr>
           </thead>
           <tbody id="transferBody"><tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr></tbody>
         </table>

@@ -513,7 +513,7 @@
       </button>
       <button class="nav-item" data-view="return" data-roles="admin,warehouse_staff">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
-        รับคืนสินค้า
+        สินค้าคืนคลัง
       </button>
       <button class="nav-item" data-view="issue" data-roles="admin,warehouse_staff">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6l1 4h4v2H4V7h4l1-4z"/><path d="M6 9v11h12V9"/></svg>
@@ -626,7 +626,7 @@
         </button>
         <button class="mod" data-view="return" data-roles="admin,warehouse_staff">
           <div class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></div>
-          <div><div class="name">รับคืนสินค้า</div><div class="desc">ตรวจสอบรายการรับคืน</div></div>
+          <div><div class="name">สินค้าคืนคลัง</div><div class="desc">ตรวจสอบรายการรับคืน</div></div>
         </button>
         <button class="mod" data-view="transfer" data-roles="admin,warehouse_staff">
           <div class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 7l3-3M4 7l3 3"/><path d="M20 17H4M20 17l-3-3M20 17l-3 3"/></svg></div>
@@ -670,50 +670,7 @@
     <section class="view" id="view-dashboard"><div class="panel empty-note">หน้าแดชบอร์ดแบบละเอียด — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
     <section class="view" id="view-reports"><div class="panel empty-note">รายงานบริหาร — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/ผู้บริหาร)</div></section>
     <section class="view" id="view-alerts"><div class="panel empty-note">แจ้งเตือน — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
-    <section class="view" id="view-receive">
-      <div class="live-toolbar">
-        <div class="scope-toggle">
-          <button class="live-btn active" data-live="receive" data-scope-btn="all">All</button>
-          <button class="live-btn" data-live="receive" data-scope-btn="warehouse">Warehouse</button>
-        </div>
-        <button class="live-btn" data-live="receive" data-action="reset">Reset Filter</button>
-        <span style="flex:1"></span>
-        <button class="live-btn primary" data-live="receive" data-action="export">Export as CSV</button>
-      </div>
-      <div class="live-filters">
-        <input type="date" class="live-input" data-live="receive" data-filter="dateFrom" title="Document date from">
-        <input type="date" class="live-input" data-live="receive" data-filter="dateTo" title="Document date to">
-        <input type="text" class="live-input" data-live="receive" data-filter="sender" placeholder="Sender">
-        <input type="text" class="live-input" data-live="receive" data-filter="receiver" placeholder="Receiver">
-        <input type="text" class="live-input" data-live="receive" data-filter="invoice" placeholder="Invoice">
-      </div>
-      <div class="section-head">
-        <h3>สรุปยอดรายวัน</h3>
-        <div class="hint">รวมทุก invoice ในช่วงวันที่ที่เลือก แยกตามวัน</div>
-      </div>
-      <div class="panel" style="margin-bottom:22px;">
-        <table>
-          <thead>
-            <tr><th>วันที่</th><th>จำนวนใบ</th><th>Pair</th><th>Accessories</th><th>ToTalAmount</th></tr>
-          </thead>
-          <tbody id="receiveDailyBody"><tr><td colspan="5" class="empty-note">กำลังโหลด…</td></tr></tbody>
-        </table>
-      </div>
-      <div class="panel">
-        <table>
-          <thead>
-            <tr><th>BookedDate</th><th>DocumentDate</th><th>Sender</th><th>Receiver</th><th>Invoice</th><th>Pair</th><th>Accessories</th><th>ToTalAmount</th></tr>
-          </thead>
-          <tbody id="receiveBody"><tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr></tbody>
-        </table>
-      </div>
-      <div class="live-pager">
-        <span id="receiveStatus"></span>
-        <button class="live-btn" data-live="receive" data-action="prev">&larr; ก่อนหน้า</button>
-        <button class="live-btn" data-live="receive" data-action="next">ถัดไป &rarr;</button>
-      </div>
-      <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้ · ตารางนี้มีข้อมูลหลักล้านแถว จึงกรองวันที่เป็น "วันนี้" เป็นค่าเริ่มต้นเสมอเพื่อความเร็ว ขยายช่วงวันที่ได้เองแต่จะโหลดช้าลงตามจำนวนแถว</div>
-    </section>
+    <section class="view" id="view-receive"><div class="panel empty-note">รับสินค้าเข้า — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-dispatch">
       <div class="live-toolbar">
         <div class="scope-toggle">
@@ -725,20 +682,20 @@
         <button class="live-btn primary" data-live="dispatch" data-action="export">Export as CSV</button>
       </div>
       <div class="live-filters">
-        <input type="date" class="live-input" data-live="dispatch" data-filter="dateFrom" title="Document date from">
-        <input type="date" class="live-input" data-live="dispatch" data-filter="dateTo" title="Document date to">
-        <input type="text" class="live-input" data-live="dispatch" data-filter="sender" placeholder="Sender">
-        <input type="text" class="live-input" data-live="dispatch" data-filter="receiver" placeholder="Receiver">
-        <input type="text" class="live-input" data-live="dispatch" data-filter="invoice" placeholder="Invoice">
+        <input type="date" class="live-input" data-live="dispatch" data-filter="dateFrom" title="วันที่เอกสาร ตั้งแต่">
+        <input type="date" class="live-input" data-live="dispatch" data-filter="dateTo" title="วันที่เอกสาร ถึง">
+        <input type="text" class="live-input" data-live="dispatch" data-filter="sender" placeholder="ผู้ส่ง">
+        <input type="text" class="live-input" data-live="dispatch" data-filter="receiver" placeholder="ผู้รับ">
+        <input type="text" class="live-input" data-live="dispatch" data-filter="invoice" placeholder="เลขที่เอกสาร">
       </div>
       <div class="section-head">
         <h3>สรุปยอดรายวัน</h3>
-        <div class="hint">รวมทุก invoice ในช่วงวันที่ที่เลือก แยกตามวัน</div>
+        <div class="hint">รวมทุกเอกสารในช่วงวันที่ที่เลือก แยกตามวัน</div>
       </div>
       <div class="panel" style="margin-bottom:22px;">
         <table>
           <thead>
-            <tr><th>วันที่</th><th>จำนวนใบ</th><th>Pair</th><th>Accessories</th><th>ToTalAmount</th></tr>
+            <tr><th>วันที่</th><th>จำนวนใบ</th><th>คู่</th><th>อุปกรณ์เสริม</th><th>ยอดรวม</th></tr>
           </thead>
           <tbody id="dispatchDailyBody"><tr><td colspan="5" class="empty-note">กำลังโหลด…</td></tr></tbody>
         </table>
@@ -746,7 +703,7 @@
       <div class="panel">
         <table>
           <thead>
-            <tr><th>BookedDate</th><th>DocumentDate</th><th>Sender</th><th>Receiver</th><th>Invoice</th><th>Pair</th><th>Accessories</th><th>ToTalAmount</th></tr>
+            <tr><th>วันที่บันทึก</th><th>วันที่เอกสาร</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>เลขที่เอกสาร</th><th>คู่</th><th>อุปกรณ์เสริม</th><th>ยอดรวม</th></tr>
           </thead>
           <tbody id="dispatchBody"><tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr></tbody>
         </table>
@@ -758,8 +715,51 @@
       </div>
       <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้ · ตารางนี้มีข้อมูลหลักล้านแถว จึงกรองวันที่เป็น "วันนี้" เป็นค่าเริ่มต้นเสมอเพื่อความเร็ว ขยายช่วงวันที่ได้เองแต่จะโหลดช้าลงตามจำนวนแถว</div>
     </section>
-    <section class="view" id="view-transfer"><div class="panel empty-note">โอนสินค้าระหว่างคลัง — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
-    <section class="view" id="view-return"><div class="panel empty-note">รับคืนสินค้า — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-transfer">
+      <div class="live-toolbar">
+        <div class="scope-toggle">
+          <button class="live-btn active" data-live="transfer" data-scope-btn="all">All</button>
+          <button class="live-btn" data-live="transfer" data-scope-btn="warehouse">Warehouse</button>
+        </div>
+        <button class="live-btn" data-live="transfer" data-action="reset">Reset Filter</button>
+        <span style="flex:1"></span>
+        <button class="live-btn primary" data-live="transfer" data-action="export">Export as CSV</button>
+      </div>
+      <div class="live-filters">
+        <input type="date" class="live-input" data-live="transfer" data-filter="dateFrom" title="วันที่เอกสาร ตั้งแต่">
+        <input type="date" class="live-input" data-live="transfer" data-filter="dateTo" title="วันที่เอกสาร ถึง">
+        <input type="text" class="live-input" data-live="transfer" data-filter="sender" placeholder="ผู้ส่ง">
+        <input type="text" class="live-input" data-live="transfer" data-filter="receiver" placeholder="ผู้รับ">
+        <input type="text" class="live-input" data-live="transfer" data-filter="invoice" placeholder="เลขที่เอกสาร">
+      </div>
+      <div class="section-head">
+        <h3>สรุปยอดรายวัน</h3>
+        <div class="hint">รวมทุกเอกสารในช่วงวันที่ที่เลือก แยกตามวัน</div>
+      </div>
+      <div class="panel" style="margin-bottom:22px;">
+        <table>
+          <thead>
+            <tr><th>วันที่</th><th>จำนวนใบ</th><th>คู่</th><th>อุปกรณ์เสริม</th><th>ยอดรวม</th></tr>
+          </thead>
+          <tbody id="transferDailyBody"><tr><td colspan="5" class="empty-note">กำลังโหลด…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr><th>วันที่บันทึก</th><th>วันที่เอกสาร</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>เลขที่เอกสาร</th><th>คู่</th><th>อุปกรณ์เสริม</th><th>ยอดรวม</th></tr>
+          </thead>
+          <tbody id="transferBody"><tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="live-pager">
+        <span id="transferStatus"></span>
+        <button class="live-btn" data-live="transfer" data-action="prev">&larr; ก่อนหน้า</button>
+        <button class="live-btn" data-live="transfer" data-action="next">ถัดไป &rarr;</button>
+      </div>
+      <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้ · ตารางนี้มีข้อมูลหลักล้านแถว จึงกรองวันที่เป็น "วันนี้" เป็นค่าเริ่มต้นเสมอเพื่อความเร็ว ขยายช่วงวันที่ได้เองแต่จะโหลดช้าลงตามจำนวนแถว</div>
+    </section>
+    <section class="view" id="view-return"><div class="panel empty-note">สินค้าคืนคลัง — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-issue"><div class="panel empty-note">เบิกใช้ภายใน — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-master"><div class="panel empty-note">มาสเตอร์ดาต้า — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
     <section class="view" id="view-stockcount"><div class="panel empty-note">ตรวจนับสต็อก — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
@@ -818,11 +818,15 @@ function roleLabel(role){
 // ─── Live Dispatch/Receiving (queries MySQL directly via the LAN-only
 // api-server.js — only reachable when this page is opened from inside the
 // office network, e.g. http://<lan-ip>:3001, not from the public link) ───
-const LIVE_TABLE = { dispatch: 'dispatch', receive: 'receiving' };
+// "จ่ายสินค้าออก" shows the receiving table's data and "โอนสินค้าระหว่างคลัง"
+// shows the dispatch table's data — remapped per warehouse manager feedback
+// on what each menu should actually display; "รับสินค้าเข้า" has no live
+// source wired up for now.
+const LIVE_TABLE = { dispatch: 'receiving', transfer: 'dispatch' };
 const livePageSize = 100;
 const liveState = {
   dispatch: { page: 1, scope: 'all', rows: [], loaded: false },
-  receive: { page: 1, scope: 'all', rows: [], loaded: false },
+  transfer: { page: 1, scope: 'all', rows: [], loaded: false },
 };
 
 // dispatch/receiving each hold millions of rows — always default to
@@ -984,7 +988,7 @@ function showView(name){
   document.querySelectorAll('.nav-item[data-view="' + name + '"]').forEach(n => n.classList.add('active'));
   if (name === 'users') loadUsers();
   if (name === 'dispatch') loadLive('dispatch');
-  if (name === 'receive') loadLive('receive');
+  if (name === 'transfer') loadLive('transfer');
 }
 
 document.addEventListener('click', (e) => {

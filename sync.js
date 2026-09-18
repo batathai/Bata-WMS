@@ -30,6 +30,7 @@ const SCHEDULE = ['0 12 * * *', '0 18 * * *', '0 22 * * *']; // 12:00, 18:00, 22
 
 // Column name mapping: MySQL camelCase -> Postgres snake_case
 const COLUMN_MAP = {
+  Id: 'id',
   bookedDate: 'booked_date',
   sendDate: 'send_date',
   documentDate: 'document_date',
@@ -41,7 +42,7 @@ const COLUMN_MAP = {
 };
 
 const PASSTHROUGH_COLUMNS = [
-  'id', 'sender', 'receiver', 'invoice', 'article', 'size',
+  'sender', 'receiver', 'invoice', 'article', 'size',
   'items', 'category', 'price', 'amount',
 ];
 

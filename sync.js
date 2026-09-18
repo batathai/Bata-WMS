@@ -92,30 +92,44 @@ function transformRow(row) {
 }
 
 // ─── Sync one table ─────────────────────────────────────────────
-async function syncTable(conn, table, since) {
-  const [rows] = await conn.execute(
-    `SELECT * FROM \`${table}\` WHERE updatedAt > ? ORDER BY updatedAt ASC LIMIT 5000`,
-    [since]
-  );
+// Loops in pages of 5000 until caught up to "now" (or a page comes back
+// short), persisting the watermark after every page — a large first-time
+// backfill (millions of rows) finishes in one run instead of one page per
+// scheduled run, and a crash partway through resumes from the last saved
+// page instead of redoing the whole table.
+async function syncTable(conn, table, state) {
+  let since = state[table] || '1970-01-01 00:00:00';
+  let totalSynced = 0;
 
-  if (rows.length === 0) {
-    console.log(`[${table}] no changes since ${since}`);
-    return since; // watermark unchanged
+  for (;;) {
+    const [rows] = await conn.execute(
+      `SELECT * FROM \`${table}\` WHERE updatedAt > ? ORDER BY updatedAt ASC LIMIT 5000`,
+      [since]
+    );
+
+    if (rows.length === 0) {
+      if (totalSynced === 0) console.log(`[${table}] no changes since ${since}`);
+      break;
+    }
+
+    const payload = rows.map(transformRow);
+
+    // Upsert in batches of 500 to stay well under request size limits
+    const BATCH = 500;
+    for (let i = 0; i < payload.length; i += BATCH) {
+      const chunk = payload.slice(i, i + BATCH);
+      const { error } = await supabase.from(table).upsert(chunk, { onConflict: 'id' });
+      if (error) throw new Error(`[${table}] upsert failed: ${error.message}`);
+    }
+
+    since = rows[rows.length - 1].updatedAt;
+    totalSynced += rows.length;
+    state[table] = since;
+    saveState(state);
+    console.log(`[${table}] synced ${rows.length} row(s) (total ${totalSynced}), watermark -> ${since}`);
+
+    if (rows.length < 5000) break; // caught up to "now"
   }
-
-  const payload = rows.map(transformRow);
-
-  // Upsert in batches of 500 to stay well under request size limits
-  const BATCH = 500;
-  for (let i = 0; i < payload.length; i += BATCH) {
-    const chunk = payload.slice(i, i + BATCH);
-    const { error } = await supabase.from(table).upsert(chunk, { onConflict: 'id' });
-    if (error) throw new Error(`[${table}] upsert failed: ${error.message}`);
-  }
-
-  const newWatermark = rows[rows.length - 1].updatedAt;
-  console.log(`[${table}] synced ${rows.length} row(s), watermark -> ${newWatermark}`);
-  return newWatermark;
 }
 
 // ─── Main run ────────────────────────────────────────────────────
@@ -128,15 +142,11 @@ async function runSync() {
 
   try {
     for (const table of TABLES) {
-      // First run for a table: default to a wide-open backfill window.
-      const since = state[table] || '1970-01-01 00:00:00';
-      const newWatermark = await syncTable(conn, table, since);
-      state[table] = newWatermark;
+      await syncTable(conn, table, state);
     }
-    saveState(state);
     console.log('=== Sync finished OK ===\n');
   } catch (err) {
-    console.error('=== Sync FAILED — state not advanced, will retry same window next run ===');
+    console.error('=== Sync FAILED — state saved up to the last successful page, will resume from there next run ===');
     console.error(err);
   } finally {
     await conn.end();

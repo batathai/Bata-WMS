@@ -4,6 +4,24 @@ All notable changes to this project are documented here. Format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/), grouped
 by date.
 
+## 2026-09-21
+
+### Added
+- 9 new sidebar menu items (placeholders, no UI built yet — Admin/
+  Warehouse Staff) matching an updated WMS menu spec: วางแผนจ่ายสินค้า
+  (Outbound Planning), การขนส่ง (Transport), OCR รับคืนสินค้า (Goods
+  Return OCR), ตรวจสอบสต็อก (Stock Audit), ยิงรีเช็ค (Recheck Scan),
+  ตำแหน่งจัดเก็บ (Bulk Location), สต็อกคงเหลือ (Stock On-Hand), OCR
+  ตรวจเอกสาร, and ความเคลื่อนไหวสต็อก (Stock Movement).
+- `CLAUDE.md` and `CHANGELOG.md` added to document the project's
+  architecture and history for future contributors (human or AI).
+
+### Note
+- The spec's menu list included a few items that already exist under a
+  different name (Transfer → โอนสินค้าระหว่างคลัง, Return →
+  สินค้าคืนคลัง, Reconcile Scan → กระทบยอด). Per user confirmation, the
+  existing menus were left as-is rather than duplicated or renamed.
+
 ## 2026-09-18
 
 ### Fixed

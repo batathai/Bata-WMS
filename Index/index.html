@@ -519,6 +519,18 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6l1 4h4v2H4V7h4l1-4z"/><path d="M6 9v11h12V9"/></svg>
         เบิกใช้ภายใน
       </button>
+      <button class="nav-item" data-view="outboundplan" data-roles="admin,warehouse_staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="17" rx="1"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8 14h3M8 17h6"/></svg>
+        วางแผนจ่ายสินค้า
+      </button>
+      <button class="nav-item" data-view="transport" data-roles="admin,warehouse_staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="7" width="13" height="9" rx="1"/><path d="M14 10h4l4 3v3h-8"/><circle cx="5.5" cy="19" r="1.6"/><circle cx="16.5" cy="19" r="1.6"/></svg>
+        การขนส่ง
+      </button>
+      <button class="nav-item" data-view="returnocr" data-roles="admin,warehouse_staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/><path d="M3 12a9 9 0 1 1 3 6.7" transform="translate(0,0)"/></svg>
+        OCR รับคืนสินค้า
+      </button>
     </div>
 
     <div class="side-label">ข้อมูลหลัก</div>
@@ -531,9 +543,33 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18M9 9v11"/></svg>
         ตรวจนับสต็อก
       </button>
+      <button class="nav-item" data-view="stockaudit" data-roles="admin,warehouse_staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="1"/></svg>
+        ตรวจสอบสต็อก
+      </button>
+      <button class="nav-item" data-view="recheckscan" data-roles="admin,warehouse_staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3"/><path d="M4 12h16"/></svg>
+        ยิงรีเช็ค
+      </button>
+      <button class="nav-item" data-view="bulklocation" data-roles="admin,warehouse_staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        ตำแหน่งจัดเก็บ
+      </button>
+      <button class="nav-item" data-view="stockonhand" data-roles="admin,warehouse_staff,viewer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M3 7l9 4 9-4"/></svg>
+        สต็อกคงเหลือ
+      </button>
+      <button class="nav-item" data-view="ocrdoc" data-roles="admin,warehouse_staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 2v6h6"/><path d="M8 15h8M8 18h5"/></svg>
+        OCR ตรวจเอกสาร
+      </button>
       <button class="nav-item" data-view="reconcile" data-roles="admin,warehouse_staff">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11 4a7 7 0 1 0 4.9 12L21 21"/></svg>
         กระทบยอด
+      </button>
+      <button class="nav-item" data-view="stockmovement" data-roles="admin,warehouse_staff,viewer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+        ความเคลื่อนไหวสต็อก
       </button>
       <button class="nav-item" data-view="history" data-roles="admin,warehouse_staff,viewer">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 2v6h6"/></svg>
@@ -603,7 +639,7 @@
         <div class="kpi">
           <div class="label">ข้อมูลอัปเดตล่าสุด</div>
           <div class="value num" id="kpiSyncedAt" style="font-size:16px;">—</div>
-          <div class="delta"></div>
+          <div class="delta">มาจาก MySQL → Supabase sync</div>
         </div>
       </div>
 
@@ -761,9 +797,18 @@
     </section>
     <section class="view" id="view-return"><div class="panel empty-note">สินค้าคืนคลัง — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-issue"><div class="panel empty-note">เบิกใช้ภายใน — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-outboundplan"><div class="panel empty-note">วางแผนจ่ายสินค้า — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-transport"><div class="panel empty-note">การขนส่ง — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-returnocr"><div class="panel empty-note">OCR รับคืนสินค้า — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-master"><div class="panel empty-note">มาสเตอร์ดาต้า — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
     <section class="view" id="view-stockcount"><div class="panel empty-note">ตรวจนับสต็อก — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-stockaudit"><div class="panel empty-note">ตรวจสอบสต็อก — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-recheckscan"><div class="panel empty-note">ยิงรีเช็ค — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-bulklocation"><div class="panel empty-note">ตำแหน่งจัดเก็บ — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-stockonhand"><div class="panel empty-note">สต็อกคงเหลือ — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
+    <section class="view" id="view-ocrdoc"><div class="panel empty-note">OCR ตรวจเอกสาร — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-reconcile"><div class="panel empty-note">กระทบยอด — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-stockmovement"><div class="panel empty-note">ความเคลื่อนไหวสต็อก — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
     <section class="view" id="view-history"><div class="panel empty-note">ประวัติเอกสาร — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
 
     <!-- ═══════ USER MANAGEMENT (admin only) ═══════ -->

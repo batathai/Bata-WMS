@@ -53,7 +53,7 @@ KPIs, etc.) have data to show without querying MySQL on every page load.
 | `api-server.js` | Express server. Serves `Index/` as static files **and** a `/api/:view` route (`dispatch`, `receiving`, or `receiving-return`) that queries MySQL directly. LAN-only, no auth. |
 | `sync.js` | One-shot + cron-scheduled script: MySQL → Supabase incremental sync, watermarked by each row's `updatedAt`. Run with `npm start`. |
 | `schema.sql` | Supabase/Postgres schema mirroring the MySQL `dispatch`/`receiving` tables. Run once in the Supabase SQL Editor before the first sync. |
-| `reconcile-schema.sql` | Supabase schema for the "กระทบยอด" (barcode reconcile) feature — `reconcile_batches`/`reconcile_items`/`reconcile_scans`, all Supabase-only (no MySQL involved). Run once before using that menu. |
+| `reconcile-schema.sql` | Supabase schema for the "กระทบยอด" (barcode reconcile) feature — `reconcile_batches`/`reconcile_items`/`reconcile_scans`/`reconcile_history`, all Supabase-only (no MySQL involved). Run once before using that menu. |
 | `.env.example` | Template for local secrets (MySQL creds, Supabase URL/keys, API port). **Never commit a real `.env`.** |
 | `sync-state.json` | Auto-created by `sync.js`; stores the per-table sync watermark. Git-ignored. Delete it to force a full re-sync. |
 | `README.md` | Setup instructions for a human running `sync.js`/`api-server.js` on a Windows PC. |
@@ -118,45 +118,75 @@ by query params — if the return-receiver code ever changes, update
 
 ## กระทบยอด (barcode reconcile) — Supabase-only, no MySQL involved
 
-> **Correction (2026-09-22, later the same day):** this section previously
-> described a UI/JS implementation that did **not** actually exist — the
-> 2026-09-22 commit that introduced `reconcile-schema.sql` only added the
-> schema file (plus this doc and the CHANGELOG entry), and never touched
-> `Index/index.html`. `view-reconcile` was still the generic
-> `ยังไม่ได้สร้าง UI ส่วนนี้` placeholder. The description below has been
-> rewritten to match what was actually built afterward, once real field
-> data from the legacy Google Sheets system (`T_Reconcile_Base/Scan/Report`)
-> was available to reverse-engineer the real matching/scan logic from.
+> **Correction (2026-09-22, later the same day):** an earlier version of
+> this section described a UI/JS implementation that did **not** actually
+> exist — the first 2026-09-22 commit only added `reconcile-schema.sql`
+> (plus docs) and never touched `Index/index.html`. The description below
+> reflects the actual build that followed, once real field data from the
+> legacy Google Sheets system (`T_Reconcile_Base/Scan/Report`) was
+> available to reverse-engineer the matching/scan logic from — this is a
+> from-scratch Supabase implementation, not a port of that system's code.
 
 Unlike Dispatch/Transfer/Return, this feature doesn't touch MySQL or
 `api-server.js` at all — it's a standalone Excel-upload + barcode-scan
 workflow backed entirely by Supabase (`reconcile-schema.sql`):
-`reconcile_batches` (one row per "Batch ID / รอบงาน"), `reconcile_items`
+`reconcile_batches` (one row per "Batch ID / รอบงาน", `batch_code` is a
+free-text code like `W37-38`, not auto-numbered), `reconcile_items`
 (rows parsed client-side from the uploaded "ไฟล์ตั้งต้น" — the expected
-stock), `reconcile_scans` (one row per barcode scan, matched against
-`reconcile_items` to decide ตรง/ไม่ตรง). All state (`rcState` in
-`Index/index.html`) is per-view-session, reloaded from Supabase on
-"โหลดรอบงาน"/"รีเฟรช".
+stock, keyed by `article`+`size`, plus a warehouse zone/rack code `cat`
+and a condition `remark` e.g. "Good"), `reconcile_scans` (one row per
+barcode scan), `reconcile_history` (append-only log written on close).
+All state (`rcState` in `Index/index.html`) is per-view-session, reloaded
+from Supabase on "โหลด/สร้างรอบงาน".
 
+- **Matching is by Article+Size, not literal barcode.** `rcParseBarcode`
+  decodes each scanned 13-digit barcode as
+  `[prefix 1][Article 7][pad "0"][Size 3][check digit 1]` (confirmed
+  against real scan data — the prefix and check digit vary and are
+  ignored). The decoded article+size is looked up in `rcState.items`.
+- **Three rejection reasons**, each producing a `reconcile_scans` row with
+  `result='ไม่ตรง'`, `qty=0`, and a specific `reason` string (see
+  `rcHandleScan`):
+  - Article not in the batch's ไฟล์ตั้งต้น at all →
+    `ไม่พบ Article {article} ในไฟล์ตั้งต้น`
+  - Article exists but scanned size doesn't match any of its sizes →
+    `Size ไม่ตรง: ยิง {size} / ตั้งต้นมี {sizes...}`
+  - Article+size exists but already scanned up to its `qty_expected` →
+    `รายการนี้ยิงครบจำนวนตามไฟล์ตั้งต้นแล้ว {n}/{qty_expected} ไม่รับชิ้นเกิน`
+    (over-scan cap — excess scans are rejected, never counted past the
+    expected quantity for that line)
+- **Per-scan result is binary** (`ตรง`/`ไม่ตรง`, matches the `reconcile_scans.result`
+  check constraint) but **the report (`rcBuildReportRows`) is 3-way per
+  Article+Size line**: `ตรง` (fully scanned), `ยังไม่ครบ` (partially
+  scanned), `ยังไม่ได้ยิง` (not scanned at all) — this only shows up when
+  aggregating scans against each item's `qty_expected`.
+- Batch stats (`rcComputeStats`) split rejected scans into "ไม่พบ
+  Article" (`errorRows`, genuinely unknown articles — a data problem)
+  vs. other rejections (`rejectedScans`, mostly over-scan cap hits) —
+  this split is inferred/designed, not confirmed against the legacy
+  system (its `T_Reconcile_History`/`Error Rows` tab was inaccessible
+  when this was built).
 - Excel parsing (`rcParseExcelFile`) runs entirely in the browser via
   SheetJS (`xlsx` CDN script in `<head>`) — nothing is uploaded to a
   server. Column matching in `rcParsePick` is best-effort/flexible
-  (looks for header names like `barcode`/`บาร์โค้ด`, `article`, `size`,
-  `qty`, case- and whitespace-insensitive); adjust the `keys` arrays
-  there if a real source file uses different headers.
+  (looks for header names like `cat`/`โซน`, `article`, `size`, `qty`,
+  `remark`/`หมายเหตุ`, case- and whitespace-insensitive); adjust the
+  `keys` arrays there if a real source file uses different headers.
 - "ผูกไฟล์ตั้งต้นกับรอบนี้" **replaces** all `reconcile_items` for that
   batch (delete then insert) — re-uploading is destructive by design,
   not additive.
-- A closed batch (`status = 'closed'`, set by "ปิดงาน / บันทึก History")
-  is read-only in the UI (scan input disabled, write buttons guard on
-  `rcState.batch.status`) — closing is how this feature's "History" is
-  kept, there's no separate history table.
+- "ปิดงาน / บันทึก History" freezes the batch's summary numbers plus who
+  closed it into a new `reconcile_history` row (append-only — a batch
+  could in principle be reopened directly in Supabase and closed again,
+  producing a second history row for the same batch), then sets
+  `reconcile_batches.status = 'closed'`. A closed batch is read-only in
+  the UI (scan input and write buttons disabled, guarded on
+  `rcState.batch.status` both client-side and by re-checking before each
+  write) — there's no "reopen" button in the UI.
 - UI reference only, not a spec to match pixel-for-pixel: the layout was
   adapted from a screenshot of a separate, already-existing barcode
   reconcile tool the warehouse already uses day-to-day — the button/stat
-  labels were kept close to that tool for familiarity, but this
-  implementation is a fresh build against Supabase, not a port of that
-  tool's actual code.
+  labels were kept close to that tool for familiarity.
 
 ## Secrets / credentials
 

@@ -7,15 +7,16 @@ by date.
 ## 2026-09-22
 
 ### Added
-- Built out "กระทบยอด" (barcode reconcile) — new Supabase-only feature,
-  no MySQL involved: upload an Excel "ไฟล์ตั้งต้น" per Batch ID/รอบงาน
-  (parsed in-browser via SheetJS), scan barcodes against it, and track
-  ยอดตั้งต้น/ยอดยิงสำเร็จ/ผลต่าง/ยังไม่ได้ยิง/ตรง/ไม่ตรง live. Includes
-  ดูรายการค้าง, สร้างรายงานลูกค้า (CSV), ล้างผลการยิง, ปิดงาน/บันทึก
-  History (closes the batch read-only), เริ่มรอบใหม่, and ลบรายการตาม
-  Article. New `reconcile-schema.sql` (run once in Supabase before first
-  use). UI adapted from a screenshot of a separate tool the warehouse
-  already uses — not a pixel-for-pixel port, see CLAUDE.md.
+- Added `reconcile-schema.sql` (Supabase schema: `reconcile_batches`/
+  `reconcile_items`/`reconcile_scans`, RLS gated to admin/warehouse_staff)
+  for the planned "กระทบยอด" (barcode reconcile) feature. **Correction**:
+  this entry originally (and incorrectly) claimed the feature's UI/JS —
+  Excel upload, barcode scanning, live stats, CSV report, close/History —
+  was built out too. It was not; only this schema file was added, and
+  `view-reconcile` in `Index/index.html` remained the generic
+  "ยังไม่ได้สร้าง UI ส่วนนี้" placeholder. The actual UI + matching logic
+  was built later the same day once real data from the legacy system was
+  available — see the entry below.
 - Dates formatted as dd/mm/yyyy instead of yyyy-mm-dd in live tables,
   the Home page's recent-documents table, and CSV exports.
 - Built out "สินค้าคืนคลัง" (Return) as a full live view (filters, daily

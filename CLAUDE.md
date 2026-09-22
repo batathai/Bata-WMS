@@ -118,6 +118,16 @@ by query params — if the return-receiver code ever changes, update
 
 ## กระทบยอด (barcode reconcile) — Supabase-only, no MySQL involved
 
+> **Correction (2026-09-22, later the same day):** this section previously
+> described a UI/JS implementation that did **not** actually exist — the
+> 2026-09-22 commit that introduced `reconcile-schema.sql` only added the
+> schema file (plus this doc and the CHANGELOG entry), and never touched
+> `Index/index.html`. `view-reconcile` was still the generic
+> `ยังไม่ได้สร้าง UI ส่วนนี้` placeholder. The description below has been
+> rewritten to match what was actually built afterward, once real field
+> data from the legacy Google Sheets system (`T_Reconcile_Base/Scan/Report`)
+> was available to reverse-engineer the real matching/scan logic from.
+
 Unlike Dispatch/Transfer/Return, this feature doesn't touch MySQL or
 `api-server.js` at all — it's a standalone Excel-upload + barcode-scan
 workflow backed entirely by Supabase (`reconcile-schema.sql`):

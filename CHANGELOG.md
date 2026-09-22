@@ -6,6 +6,19 @@ by date.
 
 ## 2026-09-22
 
+### Added
+- Built out "สินค้าคืนคลัง" (Return) as a full live view (filters, daily
+  summary, pagination, CSV export) showing `receiving` rows where
+  `receiver = 57702` — these are warehouse returns, previously mixed into
+  "จ่ายสินค้าออก".
+
+### Changed
+- `api-server.js` now splits the `receiving` table into two API views:
+  `receiving` (used by "จ่ายสินค้าออก") always excludes `receiver = 57702`;
+  a new `receiving-return` view (used by "สินค้าคืนคลัง") always locks to
+  `receiver = 57702` only. Neither condition can be overridden by query
+  params.
+
 ### Removed
 - Stopped using the public GitHub Pages deployment at `tms.batathai.com`
   — removed the `CNAME` file. `http://<lan-ip>:3001` (served by

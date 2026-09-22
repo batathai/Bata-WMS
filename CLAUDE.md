@@ -49,8 +49,8 @@ KPIs, etc.) have data to show without querying MySQL on every page load.
 
 | Path | Purpose |
 |---|---|
-| `Index/index.html` | The entire public app: login, sidebar nav, Home KPIs, all views. Single-file (HTML+CSS+JS), talks to Supabase via `@supabase/supabase-js` (CDN) and, for the live views, to `api-server.js` over `/api/:table`. |
-| `api-server.js` | Express server. Serves `Index/` as static files **and** a generic `/api/:table` route (table must be `dispatch` or `receiving`) that queries MySQL directly. LAN-only, no auth. |
+| `Index/index.html` | The entire public app: login, sidebar nav, Home KPIs, all views. Single-file (HTML+CSS+JS), talks to Supabase via `@supabase/supabase-js` (CDN) and, for the live views, to `api-server.js` over `/api/:view`. |
+| `api-server.js` | Express server. Serves `Index/` as static files **and** a `/api/:view` route (`dispatch`, `receiving`, or `receiving-return`) that queries MySQL directly. LAN-only, no auth. |
 | `sync.js` | One-shot + cron-scheduled script: MySQL → Supabase incremental sync, watermarked by each row's `updatedAt`. Run with `npm start`. |
 | `schema.sql` | Supabase/Postgres schema mirroring the MySQL `dispatch`/`receiving` tables. Run once in the Supabase SQL Editor before the first sync. |
 | `.env.example` | Template for local secrets (MySQL creds, Supabase URL/keys, API port). **Never commit a real `.env`.** |
@@ -84,19 +84,36 @@ As of the September 2026 remap (see CHANGELOG), the sidebar labels do
 **not** map 1:1 to MySQL table names. In `Index/index.html`:
 
 ```js
-const LIVE_TABLE = { dispatch: 'receiving', transfer: 'dispatch' };
+const LIVE_TABLE = { dispatch: 'receiving', transfer: 'dispatch', return: 'receiving-return' };
 ```
 
 - Menu **"จ่ายสินค้าออก"** (`data-view="dispatch"`) shows the MySQL
-  **`receiving`** table's data.
+  **`receiving`** table's data, **excluding** rows where `receiver = '57702'`.
 - Menu **"โอนสินค้าระหว่างคลัง"** (`data-view="transfer"`) shows the MySQL
   **`dispatch`** table's data.
+- Menu **"สินค้าคืนคลัง"** (`data-view="return"`) shows the MySQL
+  **`receiving`** table's data, **locked to only** `receiver = '57702'`.
 - Menu **"รับสินค้าเข้า"** (`data-view="receive"`) is currently an empty
   placeholder — no live source wired up.
 
 This was an explicit, confirmed business decision from the warehouse
 manager, not a bug. Do not "fix" it back to the literal name-matching
 without checking with the user first.
+
+### The receiver=57702 split (dispatch vs return)
+
+`receiver` code `57702` marks a `receiving` row as a warehouse return
+rather than a normal dispatch. `api-server.js` enforces this server-side,
+not in the front end — see its `VIEWS`/`RETURN_RECEIVER` constant and
+`buildWhere`'s `opts.lockReceiver`/`opts.excludeReceiver`. The API exposes
+two views over the same `receiving` table:
+- `/api/receiving` — always adds `receiver <> '57702'` (used by "จ่ายสินค้าออก").
+- `/api/receiving-return` — always adds `receiver = '57702'` (used by
+  "สินค้าคืนคลัง"; that page has no ผู้รับ filter input since it's fixed).
+
+Both conditions are baked into `VIEWS` server-side and can't be overridden
+by query params — if the return-receiver code ever changes, update
+`RETURN_RECEIVER` in `api-server.js` (single source of truth).
 
 ## Secrets / credentials
 
@@ -132,9 +149,10 @@ without checking with the user first.
   GitHub directly (403) — pushes here are done via the GitHub MCP
   (`push_files`), then the local clone is fast-forwarded with
   `git fetch` + `git reset --hard origin/<branch>`.
-- `api-server.js` is intentionally generic over `TABLES = new Set(['dispatch','receiving'])`
-  — adding a new live-backed menu means adding to `LIVE_TABLE` in
-  `Index/index.html`, not necessarily touching `api-server.js`.
+- `api-server.js`'s `VIEWS` map (view name → MySQL table + fixed WHERE
+  conditions) is the single place that defines what each `/api/:view`
+  route actually queries — adding a live-backed menu usually means adding
+  an entry there plus a matching one in `LIVE_TABLE` in `Index/index.html`.
 
 ## Working conventions for this repo
 

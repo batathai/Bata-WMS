@@ -936,7 +936,11 @@ function liveFilters(view){
   return out;
 }
 
-function liveFmtDate(v){ return v ? String(v).slice(0, 10) : '—'; }
+function liveFmtDate(v){
+  if (!v) return '—';
+  const [y, m, d] = String(v).slice(0, 10).split('-');
+  return (y && m && d) ? `${d}/${m}/${y}` : String(v).slice(0, 10);
+}
 function liveFmtNum(v){
   const n = Number(v);
   return Number.isFinite(n) ? n.toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '—';
@@ -1220,7 +1224,7 @@ async function loadHomeData(){
         <td>${r.branch || '—'}</td>
         <td class="mono">${r.article || '—'} / ${r.size || '—'}</td>
         <td class="mono">${r.items ?? '—'}</td>
-        <td class="mono">${r.document_date || '—'}</td>
+        <td class="mono">${liveFmtDate(r.document_date)}</td>
       </tr>`).join('');
   }
 }

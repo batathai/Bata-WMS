@@ -53,11 +53,14 @@ in the database, regardless of what the page shows.
 - **Login, logout, role detection, nav/shortcut visibility** — fully working.
 - **User management (admin)** — lists everyone in `profiles`, lets an admin
   change any user's role live.
-- **รับสินค้าเข้า (Receiving) / จ่ายสินค้าออก (Dispatch)** — live, grouped-by-invoice
+- **จ่ายสินค้าออก / โอนสินค้าระหว่างคลัง / สินค้าคืนคลัง** — live, grouped-by-invoice
   tables with filters, CSV export, but **only when this page is opened from
   inside the office LAN** (e.g. `http://<lan-ip>:3001`, served by
-  `../api-server.js`). They call `/api/dispatch` and `/api/receiving`, which
-  query the source MySQL directly (no sync delay).
+  `../api-server.js`). They call the source MySQL directly (no sync delay).
+- **กระทบยอด (barcode reconcile)** — fully working, Supabase-only (no MySQL
+  involved). Upload an Excel starting file per batch, then scan barcodes
+  against it. Requires `reconcile-schema.sql` to be run in Supabase first —
+  see `CLAUDE.md` for the data model.
 - **All other menu items** (มาสเตอร์ดาต้า, ตรวจนับสต็อก, etc.)
   — the navigation and role-gating work, but each page is currently a
   placeholder panel. Building out each one as a real form/table is the

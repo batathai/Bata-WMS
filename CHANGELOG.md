@@ -17,6 +17,23 @@ by date.
   "ยังไม่ได้สร้าง UI ส่วนนี้" placeholder. The actual UI + matching logic
   was built later the same day once real data from the legacy system was
   available — see the entry below.
+- Built out the "กระทบยอด" (barcode reconcile) UI in `Index/index.html`
+  for real this time (`view-reconcile`), plus matching logic
+  reverse-engineered from real `T_Reconcile_Base`/`T_Reconcile_Scan`/
+  `T_Reconcile_Report` data from the legacy Google Sheets system:
+  โหลด/สร้างรอบงาน, ผูกไฟล์ตั้งต้นกับรอบนี้ (SheetJS, replaces existing
+  items), ยิงบาร์โค้ด (parses 13-digit barcodes into Article+Size,
+  matches against the ไฟล์ตั้งต้น with an over-scan cap so scans past a
+  line's qty are rejected instead of over-counted), live stats
+  (ยอดตั้งต้น/ยอดยิงสำเร็จ/ผลต่าง, ตรง/ยังไม่ครบ/ยังไม่ได้ยิง line
+  counts), ดูรายการค้าง, สร้างรายงานลูกค้า (CSV), ล้างผลการยิง,
+  ลบรายการตาม Article, and ปิดงาน/บันทึก History (closes the batch
+  read-only and writes a `reconcile_history` row). Added
+  `reconcile_history` table and a `remark` column on `reconcile_items` to
+  `reconcile-schema.sql` (re-run it in Supabase to pick up both). See
+  CLAUDE.md for the full write-up, including which parts (the
+  error/rejected-scan split) are inferred rather than confirmed against
+  the legacy system.
 - Dates formatted as dd/mm/yyyy instead of yyyy-mm-dd in live tables,
   the Home page's recent-documents table, and CSV exports.
 - Built out "สินค้าคืนคลัง" (Return) as a full live view (filters, daily

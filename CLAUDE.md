@@ -7,28 +7,40 @@ Guidance for Claude Code (or any future AI/dev) working in this repository.
 **Bata WMS** — a warehouse management web app for Bata Thailand. It is
 mostly a thin, read-oriented front end over data that already lives (and is
 still actively written to by other systems) in a legacy on-prem MySQL
-database. The app itself has two runtime halves:
+database.
 
-1. **Public site** (`Index/index.html`, deployed via GitHub Pages, see
-   `CNAME`) — login, roles, Home KPIs, and most menus, all backed by
-   **Supabase** (Postgres + Auth + RLS).
+**As of 2026-09-22, the primary (and only actively used) way to run the
+app is `api-server.js` on the office LAN** — `npm run start:api`, then
+open `http://localhost:3001` (or `http://<lan-ip>:3001` from another
+machine on the same network). The app was previously also deployed
+publicly via GitHub Pages at a custom domain (`tms.batathai.com`,
+configured via a `CNAME` file); that domain is no longer used and the
+`CNAME` file was removed. `Index/index.html` still talks to Supabase for
+everything except the live Dispatch/Transfer views (which need
+`api-server.js`), so it would still work if redeployed publicly, but doing
+so is not the current setup — check with the user before re-adding a
+`CNAME`/public deployment.
+
+1. `Index/index.html` — login, roles, Home KPIs, and most menus, all
+   backed by **Supabase** (Postgres + Auth + RLS). Served as a static file
+   by `api-server.js`.
 2. **LAN-only live API** (`api-server.js`) — run from inside the office
    network, queries the source MySQL database **directly, on every
    request**, so Dispatch/Transfer views are always up to the second
    instead of waiting for the next sync.
 
 A separate script (`sync.js`) incrementally copies `dispatch` and
-`receiving` from MySQL into Supabase so the public/internet-facing copy of
-the site has (slightly delayed) data to show without ever touching MySQL
-directly from the internet.
+`receiving` from MySQL into Supabase so the app's non-live views (Home
+KPIs, etc.) have data to show without querying MySQL on every page load.
 
 ## Why the architecture is split this way
 
 - The source MySQL server (`192.1.1.38`, db `reporting`) is **LAN-only** —
   not reachable from the internet, and other internal systems write to it
   directly, so we must not modify its schema or write to it from this app.
-- Supabase gives us internet-reachable hosting, authentication, and
-  row-level-security-based role access without exposing MySQL itself.
+- Supabase gives us hosting, authentication, and row-level-security-based
+  role access for everything that isn't the live Dispatch/Transfer data,
+  without exposing MySQL itself.
 - The LAN-only API (`api-server.js`) exists because warehouse staff who are
   physically on-site want live data (no sync lag); it deliberately has
   **no auth of its own** and must never be port-forwarded to the internet.
@@ -44,7 +56,6 @@ directly from the internet.
 | `.env.example` | Template for local secrets (MySQL creds, Supabase URL/keys, API port). **Never commit a real `.env`.** |
 | `sync-state.json` | Auto-created by `sync.js`; stores the per-table sync watermark. Git-ignored. Delete it to force a full re-sync. |
 | `README.md` | Setup instructions for a human running `sync.js`/`api-server.js` on a Windows PC. |
-| `CNAME` | GitHub Pages custom domain config. |
 
 ## Data model quirks (important, easy to get wrong)
 

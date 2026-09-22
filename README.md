@@ -66,12 +66,16 @@ pull all rows again (upsert means this is safe, just slower).
 
 ## Live Dispatch/Receiving API (LAN only)
 
-`api-server.js` serves the main app (`Index/index.html` — same
-login/roles/dashboard as the public GitHub Pages site) plus a live API that
-queries the source MySQL database directly on every request (no sync
+`api-server.js` serves the main app (`Index/index.html`) plus a live API
+that queries the source MySQL database directly on every request (no sync
 delay). The "จ่ายสินค้าออก" (Dispatch) and "รับสินค้าเข้า" (Receiving) menus
 call this API for a grouped-by-invoice table with filters and CSV export;
-every other menu still talks to Supabase, same as the public site.
+every other menu still talks to Supabase.
+
+**This is currently the only way the app is run.** It was previously also
+deployed publicly via GitHub Pages at `tms.batathai.com`; that's no longer
+used, and the `CNAME` file was removed. Everyone should access the app at
+`http://<lan-ip>:3001` from inside the office network.
 
 **This is for use inside the office LAN only** — the API routes have no
 login/auth of their own, and talk straight to the production MySQL
@@ -83,9 +87,6 @@ database. Do not port-forward its port to the internet.
    (change with `API_PORT` in `.env`).
 4. From another PC on the same network, find this machine's LAN IP
    (`ipconfig` → IPv4 Address) and open `http://<that-ip>:3001` in a browser.
-   Opened from the public GitHub Pages link instead, Dispatch/Receiving will
-   show a "can't reach the LAN API" message — expected, since that page is
-   served over HTTPS and can't call this plain-HTTP local API.
 
 `Pair` = sum of `items` where `isFootware = 1`, `Accessories` = sum of
 `items` where `isFootware = 0`, both grouped by `invoice`.

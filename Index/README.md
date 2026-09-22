@@ -42,9 +42,9 @@ in the database, regardless of what the page shows.
    Use the **anon** key here (Settings → API), not the service_role key —
    this file runs in every visitor's browser, so it must only carry the
    key that RLS is designed to restrict.
-6. **Host it** the same way as before (e.g. upload `index.html` to your
-   `batathai/bata-tms`-style GitHub Pages repo, or wherever you're putting
-   this up).
+6. **Host it** via `api-server.js` — see the root `README.md`. This is now
+   the only way the app is deployed (`http://<lan-ip>:3001`); the earlier
+   public GitHub Pages deployment (`tms.batathai.com`) is no longer used.
 
 ## What's wired to real data vs. placeholder
 
@@ -57,9 +57,7 @@ in the database, regardless of what the page shows.
   tables with filters, CSV export, but **only when this page is opened from
   inside the office LAN** (e.g. `http://<lan-ip>:3001`, served by
   `../api-server.js`). They call `/api/dispatch` and `/api/receiving`, which
-  query the source MySQL directly (no sync delay). Opened from the public
-  GitHub Pages link instead, these two menus show a "can't reach the LAN
-  API" message — that's expected, not a bug.
+  query the source MySQL directly (no sync delay).
 - **All other menu items** (มาสเตอร์ดาต้า, ตรวจนับสต็อก, etc.)
   — the navigation and role-gating work, but each page is currently a
   placeholder panel. Building out each one as a real form/table is the

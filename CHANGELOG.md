@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/), grouped
 by date.
 
+## 2026-09-22
+
+### Removed
+- Stopped using the public GitHub Pages deployment at `tms.batathai.com`
+  — removed the `CNAME` file. `http://<lan-ip>:3001` (served by
+  `api-server.js`) is now the only way the app is accessed. Updated
+  `CLAUDE.md`, `README.md`, and `Index/README.md` to reflect this.
+
 ## 2026-09-21
 
 ### Added

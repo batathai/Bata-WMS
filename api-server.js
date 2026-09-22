@@ -21,7 +21,17 @@ const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const PORT = process.env.API_PORT || 3001;
-const TABLES = new Set(['dispatch', 'receiving']);
+
+// receiver code that marks a `receiving` row as a warehouse return rather
+// than a normal dispatch — those rows are shown under "สินค้าคืนคลัง"
+// instead of "จ่ายสินค้าออก". Each API view below maps to a MySQL table
+// plus a fixed (non-overridable by query params) receiver condition.
+const RETURN_RECEIVER = '57702';
+const VIEWS = {
+  dispatch: { table: 'dispatch', opts: {} },
+  receiving: { table: 'receiving', opts: { excludeReceiver: RETURN_RECEIVER } },
+  'receiving-return': { table: 'receiving', opts: { lockReceiver: RETURN_RECEIVER } },
+};
 
 let pool;
 function getPool() {
@@ -38,8 +48,11 @@ function getPool() {
   return pool;
 }
 
-// ─── Shared WHERE clause for all three queries below ─────────────────────
-function buildWhere(filters) {
+// ─── Shared WHERE clause for all three queries below ─────────────────
+// `opts.excludeReceiver`/`opts.lockReceiver` come from the VIEWS map above,
+// never from the client — they segment "จ่ายสินค้าออก" vs "สินค้าคืนคลัง"
+// and can't be overridden by query params.
+function buildWhere(filters, opts = {}) {
   const where = [];
   const params = [];
 
@@ -54,14 +67,16 @@ function buildWhere(filters) {
     where.push('(sender LIKE ? OR receiver LIKE ?)');
     params.push('%Warehouse%', '%Warehouse%');
   }
+  if (opts.lockReceiver) { where.push('receiver = ?'); params.push(opts.lockReceiver); }
+  if (opts.excludeReceiver) { where.push('receiver <> ?'); params.push(opts.excludeReceiver); }
 
   return { whereSql: where.length ? `WHERE ${where.join(' AND ')}` : '', params };
 }
 
 // One row per invoice: Pair = sum(items) where isFootware, Accessories =
 // sum(items) where not isFootware, ToTalAmount = sum(amount).
-function buildQuery(table, filters) {
-  const { whereSql, params } = buildWhere(filters);
+function buildQuery(table, filters, opts) {
+  const { whereSql, params } = buildWhere(filters, opts);
 
   const sql = `
     SELECT
@@ -87,8 +102,8 @@ function buildQuery(table, filters) {
   return { sql, params };
 }
 
-function buildCountQuery(table, filters) {
-  const { whereSql, params } = buildWhere(filters);
+function buildCountQuery(table, filters, opts) {
+  const { whereSql, params } = buildWhere(filters, opts);
   const sql = `SELECT COUNT(DISTINCT invoice) AS total FROM \`${table}\` ${whereSql}`;
   return { sql, params };
 }
@@ -97,8 +112,8 @@ function buildCountQuery(table, filters) {
 // Accessories/ToTalAmount math as buildQuery, just grouped by day instead
 // of by invoice. Not paginated: a date range only ever has a handful of
 // distinct days, even when it spans months.
-function buildDailyQuery(table, filters) {
-  const { whereSql, params } = buildWhere(filters);
+function buildDailyQuery(table, filters, opts) {
+  const { whereSql, params } = buildWhere(filters, opts);
 
   const sql = `
     SELECT
@@ -119,17 +134,18 @@ function buildDailyQuery(table, filters) {
 const app = express();
 app.use(express.static(path.join(__dirname, 'Index')));
 
-app.get('/api/:table', async (req, res) => {
-  const { table } = req.params;
-  if (!TABLES.has(table)) {
-    return res.status(404).json({ error: `Unknown table "${table}"` });
+app.get('/api/:view', async (req, res) => {
+  const { view: viewName } = req.params;
+  const view = VIEWS[viewName];
+  if (!view) {
+    return res.status(404).json({ error: `Unknown view "${viewName}"` });
   }
 
   try {
     const conn = getPool();
-    const { sql, params } = buildQuery(table, req.query);
-    const { sql: countSql, params: countParams } = buildCountQuery(table, req.query);
-    const { sql: dailySql, params: dailyParams } = buildDailyQuery(table, req.query);
+    const { sql, params } = buildQuery(view.table, req.query, view.opts);
+    const { sql: countSql, params: countParams } = buildCountQuery(view.table, req.query, view.opts);
+    const { sql: dailySql, params: dailyParams } = buildDailyQuery(view.table, req.query, view.opts);
 
     const [rows] = await conn.execute(sql, params);
     const [[{ total }]] = await conn.execute(countSql, countParams);
@@ -137,7 +153,7 @@ app.get('/api/:table', async (req, res) => {
 
     res.json({ rows, total, daily });
   } catch (err) {
-    console.error(`[GET /api/${table}] failed:`, err);
+    console.error(`[GET /api/${viewName}] failed:`, err);
     res.status(500).json({ error: 'Query failed — see server log' });
   }
 });

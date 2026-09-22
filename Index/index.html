@@ -749,7 +749,7 @@
         <button class="live-btn" data-live="dispatch" data-action="prev">&larr; ก่อนหน้า</button>
         <button class="live-btn" data-live="dispatch" data-action="next">ถัดไป &rarr;</button>
       </div>
-      <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้ · ตารางนี้มีข้อมูลหลักล้านแถว จึงกรองวันที่เป็น "วันนี้" เป็นค่าเริ่มต้นเสมอเพื่อความเร็ว ขยายช่วงวันที่ได้เองแต่จะโหลดช้าลงตามจำนวนแถว</div>
+      <div class="foot-note">รายการที่ผู้รับ (receiver) = 57702 (สินค้าคืนคลัง) จะไม่แสดงในหน้านี้ ไปดูได้ที่เมนู "สินค้าคืนคลัง" แทน · ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้ · ตารางนี้มีข้อมูลหลักล้านแถว จึงกรองวันที่เป็น "วันนี้" เป็นค่าเริ่มต้นเสมอเพื่อความเร็ว ขยายช่วงวันที่ได้เองแต่จะโหลดช้าลงตามจำนวนแถว</div>
     </section>
     <section class="view" id="view-transfer">
       <div class="live-toolbar">
@@ -795,7 +795,49 @@
       </div>
       <div class="foot-note">ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้ · ตารางนี้มีข้อมูลหลักล้านแถว จึงกรองวันที่เป็น "วันนี้" เป็นค่าเริ่มต้นเสมอเพื่อความเร็ว ขยายช่วงวันที่ได้เองแต่จะโหลดช้าลงตามจำนวนแถว</div>
     </section>
-    <section class="view" id="view-return"><div class="panel empty-note">สินค้าคืนคลัง — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-return">
+      <div class="live-toolbar">
+        <div class="scope-toggle">
+          <button class="live-btn active" data-live="return" data-scope-btn="all">All</button>
+          <button class="live-btn" data-live="return" data-scope-btn="warehouse">Warehouse</button>
+        </div>
+        <button class="live-btn" data-live="return" data-action="reset">Reset Filter</button>
+        <span style="flex:1"></span>
+        <button class="live-btn primary" data-live="return" data-action="export">Export as CSV</button>
+      </div>
+      <div class="live-filters">
+        <input type="date" class="live-input" data-live="return" data-filter="dateFrom" title="วันที่เอกสาร ตั้งแต่">
+        <input type="date" class="live-input" data-live="return" data-filter="dateTo" title="วันที่เอกสาร ถึง">
+        <input type="text" class="live-input" data-live="return" data-filter="sender" placeholder="ผู้ส่ง">
+        <input type="text" class="live-input" data-live="return" data-filter="invoice" placeholder="เลขที่เอกสาร">
+      </div>
+      <div class="section-head">
+        <h3>สรุปยอดรายวัน</h3>
+        <div class="hint">รวมทุกเอกสารในช่วงวันที่ที่เลือก แยกตามวัน</div>
+      </div>
+      <div class="panel" style="margin-bottom:22px;">
+        <table>
+          <thead>
+            <tr><th>วันที่</th><th class="num">จำนวนใบ</th><th class="num">คู่</th><th class="num">อุปกรณ์เสริม</th><th class="num">ยอดรวม</th></tr>
+          </thead>
+          <tbody id="returnDailyBody"><tr><td colspan="5" class="empty-note">กำลังโหลด…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr><th>วันที่บันทึก</th><th>วันที่เอกสาร</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>เลขที่เอกสาร</th><th class="num">คู่</th><th class="num">อุปกรณ์เสริม</th><th class="num">ยอดรวม</th></tr>
+          </thead>
+          <tbody id="returnBody"><tr><td colspan="8" class="empty-note">กำลังโหลด…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="live-pager">
+        <span id="returnStatus"></span>
+        <button class="live-btn" data-live="return" data-action="prev">&larr; ก่อนหน้า</button>
+        <button class="live-btn" data-live="return" data-action="next">ถัดไป &rarr;</button>
+      </div>
+      <div class="foot-note">แสดงเฉพาะรายการที่ผู้รับ (receiver) = 57702 จากตาราง receiving เท่านั้น (คัดออกจากเมนู "จ่ายสินค้าออก" มาไว้ที่นี่แทน) · ข้อมูลสดจาก MySQL ผ่าน API ภายในวง LAN — ใช้ได้เฉพาะเมื่อเปิดเว็บนี้จากเครื่องในออฟฟิศ (http://&lt;ip เครื่อง&gt;:3001) ถ้าเปิดจากลิงก์ปกติผ่านอินเทอร์เน็ตจะโหลดไม่ได้ · ตารางนี้มีข้อมูลหลักล้านแถว จึงกรองวันที่เป็น "วันนี้" เป็นค่าเริ่มต้นเสมอเพื่อความเร็ว ขยายช่วงวันที่ได้เองแต่จะโหลดช้าลงตามจำนวนแถว</div>
+    </section>
     <section class="view" id="view-issue"><div class="panel empty-note">เบิกใช้ภายใน — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-outboundplan"><div class="panel empty-note">วางแผนจ่ายสินค้า — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-transport"><div class="panel empty-note">การขนส่ง — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
@@ -864,13 +906,17 @@ function roleLabel(role){
 // office network, e.g. http://<lan-ip>:3001, not from the public link) ───
 // "จ่ายสินค้าออก" shows the receiving table's data and "โอนสินค้าระหว่างคลัง"
 // shows the dispatch table's data — remapped per warehouse manager feedback
-// on what each menu should actually display; "รับสินค้าเข้า" has no live
-// source wired up for now.
-const LIVE_TABLE = { dispatch: 'receiving', transfer: 'dispatch' };
+// on what each menu should actually display. Within the receiving table,
+// rows where receiver = 57702 are warehouse returns, not dispatches — the
+// API excludes them from "receiving" and serves them separately under
+// "receiving-return", shown here as "สินค้าคืนคลัง" instead. "รับสินค้าเข้า"
+// has no live source wired up for now.
+const LIVE_TABLE = { dispatch: 'receiving', transfer: 'dispatch', return: 'receiving-return' };
 const livePageSize = 100;
 const liveState = {
   dispatch: { page: 1, scope: 'all', rows: [], loaded: false },
   transfer: { page: 1, scope: 'all', rows: [], loaded: false },
+  return: { page: 1, scope: 'all', rows: [], loaded: false },
 };
 
 // dispatch/receiving each hold millions of rows — always default to
@@ -1033,6 +1079,7 @@ function showView(name){
   if (name === 'users') loadUsers();
   if (name === 'dispatch') loadLive('dispatch');
   if (name === 'transfer') loadLive('transfer');
+  if (name === 'return') loadLive('return');
 }
 
 document.addEventListener('click', (e) => {

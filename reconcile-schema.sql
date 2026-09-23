@@ -121,14 +121,20 @@ as $$
   );
 $$;
 
+-- Postgres has no "create policy if not exists" — drop first so this
+-- file can be re-run safely against a database that already has it.
+drop policy if exists "reconcile_batches staff access" on reconcile_batches;
 create policy "reconcile_batches staff access" on reconcile_batches
   for all using (is_wms_staff()) with check (is_wms_staff());
 
+drop policy if exists "reconcile_items staff access" on reconcile_items;
 create policy "reconcile_items staff access" on reconcile_items
   for all using (is_wms_staff()) with check (is_wms_staff());
 
+drop policy if exists "reconcile_scans staff access" on reconcile_scans;
 create policy "reconcile_scans staff access" on reconcile_scans
   for all using (is_wms_staff()) with check (is_wms_staff());
 
+drop policy if exists "reconcile_history staff access" on reconcile_history;
 create policy "reconcile_history staff access" on reconcile_history
   for all using (is_wms_staff()) with check (is_wms_staff());

@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg: #F7F5F3;
@@ -848,7 +849,78 @@
     <section class="view" id="view-bulklocation"><div class="panel empty-note">ตำแหน่งจัดเก็บ — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
     <section class="view" id="view-stockonhand"><div class="panel empty-note">สต็อกคงเหลือ — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
     <section class="view" id="view-ocrdoc"><div class="panel empty-note">OCR ตรวจเอกสาร — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
-    <section class="view" id="view-reconcile"><div class="panel empty-note">กระทบยอด — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+    <section class="view" id="view-reconcile">
+      <div class="live-toolbar">
+        <input type="text" class="live-input" id="rcBatchCodeInput" placeholder="Batch ID / รอบงาน เช่น W37-38" style="width:220px;">
+        <button class="live-btn primary" id="rcLoadBatchBtn">โหลด/สร้างรอบงาน</button>
+        <span style="flex:1"></span>
+        <button class="live-btn" id="rcNewRoundBtn">เริ่มรอบใหม่</button>
+      </div>
+
+      <div id="rcBatchPanel" hidden>
+        <div class="section-head">
+          <h3>รอบงาน <span class="mono" id="rcBatchCodeLabel"></span></h3>
+          <div class="hint" id="rcBatchStatusLabel"></div>
+        </div>
+
+        <div class="bento" style="grid-template-columns:repeat(3,1fr);">
+          <div class="kpi">
+            <div class="label">ยอดตั้งต้น / ยอดยิงสำเร็จ</div>
+            <div class="value num"><span id="rcStatBaseQty">0</span> / <span id="rcStatAcceptedQty">0</span></div>
+            <div class="delta">คงเหลือ <span id="rcStatRemainingQty" class="num">0</span> ชิ้น</div>
+          </div>
+          <div class="kpi">
+            <div class="label">บรรทัดตั้งต้น: ตรง / ยังไม่ครบ / ยังไม่ยิง</div>
+            <div class="value num" id="rcStatLines" style="font-size:20px;">0 / 0 / 0</div>
+            <div class="delta">จากทั้งหมด <span id="rcStatBaseLines" class="num">0</span> บรรทัด</div>
+          </div>
+          <div class="kpi">
+            <div class="label">ยิงทั้งหมด / ถูกปฏิเสธ / ไม่พบ Article</div>
+            <div class="value num" id="rcStatScans" style="font-size:20px;">0 / 0 / 0</div>
+            <div class="delta" id="rcSourceFileLabel">ยังไม่ได้ผูกไฟล์</div>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <h3>ไฟล์ตั้งต้น</h3>
+          <div class="hint">อัปโหลดแล้วจะแทนที่รายการเดิมทั้งหมดของรอบนี้</div>
+        </div>
+        <div class="live-toolbar">
+          <input type="file" class="live-input" id="rcFileInput" accept=".xlsx,.xls,.csv">
+          <button class="live-btn primary" id="rcBindFileBtn">ผูกไฟล์ตั้งต้นกับรอบนี้</button>
+        </div>
+
+        <div class="section-head">
+          <h3>ยิงบาร์โค้ด</h3>
+          <div class="hint">พิมพ์/สแกนแล้วกด Enter</div>
+        </div>
+        <div class="live-toolbar">
+          <input type="text" class="live-input" id="rcScanInput" placeholder="สแกนบาร์โค้ดที่นี่…" style="flex:1; min-width:240px;" autocomplete="off">
+        </div>
+        <div class="foot-note" id="rcScanFeedback" style="margin-top:0; border-top:none; padding-top:0;"></div>
+
+        <div class="live-toolbar" style="margin-top:18px;">
+          <button class="live-btn" id="rcViewBacklogBtn">ดูรายการค้าง</button>
+          <button class="live-btn" id="rcClearScansBtn">ล้างผลการยิง</button>
+          <input type="text" class="live-input" id="rcDeleteArticleInput" placeholder="Article ที่จะลบ" style="width:140px;">
+          <button class="live-btn" id="rcDeleteArticleBtn">ลบรายการตาม Article</button>
+          <span style="flex:1"></span>
+          <button class="live-btn" id="rcExportReportBtn">สร้างรายงานลูกค้า (CSV)</button>
+          <button class="live-btn primary" id="rcCloseBatchBtn">ปิดงาน / บันทึก History</button>
+        </div>
+
+        <div class="panel">
+          <table>
+            <thead>
+              <tr><th>Cat</th><th>Article</th><th>Size</th><th class="num">ยอดตั้งต้น</th><th class="num">ยอดยิง</th><th class="num">คงเหลือ</th><th>ผล</th></tr>
+            </thead>
+            <tbody id="rcReportBody"><tr><td colspan="7" class="empty-note">ยังไม่มีไฟล์ตั้งต้น</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="foot-note">จับคู่บาร์โค้ดด้วย Article+Size กับไฟล์ตั้งต้น (ไม่เทียบบาร์โค้ดตรงตัว) — ยิงเกินจำนวนที่ระบุไว้จะไม่ถูกนับซ้ำ · ปิดงานแล้วรอบนี้จะแก้ไขไม่ได้อีก ต้องเริ่มรอบใหม่</div>
+      </div>
+    </section>
     <section class="view" id="view-stockmovement"><div class="panel empty-note">ความเคลื่อนไหวสต็อก — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
     <section class="view" id="view-history"><div class="panel empty-note">ประวัติเอกสาร — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
 
@@ -1070,6 +1142,326 @@ document.querySelectorAll('[data-live][data-action]').forEach(el => {
       liveState[view].page++; loadLive(view);
     }
   });
+});
+
+// ─── กระทบยอด (barcode reconcile) — Supabase-only, no MySQL involved ───
+// Matches legacy warehouse-tool behavior reverse-engineered from real
+// T_Reconcile_Base/Scan/Report data: items are matched by Article+Size
+// (not literal barcode), accepted scans are capped at each item's
+// qty_expected (excess scans are rejected, not over-counted), and the
+// per-line report status is one of three states (ตรง / ยังไม่ครบ /
+// ยังไม่ได้ยิง) even though an individual scan's result is always binary
+// (ตรง/ไม่ตรง). See CLAUDE.md for the full write-up.
+const rcState = { batch: null, items: [], scans: [], backlogOnly: false };
+
+function rcIsStaff(){ return currentRole === 'admin' || currentRole === 'warehouse_staff'; }
+
+// Barcode format (13 digits, confirmed against real scan data):
+// [prefix 1][Article 7][pad "0"][Size 3][check digit 1]
+function rcParseBarcode(raw){
+  const b = String(raw || '').trim();
+  if (!/^\d{13}$/.test(b)) return null;
+  return { article: b.slice(1, 8), size: b.slice(9, 12) };
+}
+
+function rcNormSize(v){
+  const digits = String(v ?? '').trim().replace(/[^\d]/g, '');
+  return digits ? digits.padStart(3, '0') : String(v ?? '').trim();
+}
+
+// Best-effort/flexible column matching for the uploaded ไฟล์ตั้งต้น —
+// adjust these `keys` arrays if a real source file uses different headers.
+function rcParsePick(rowLower, keys){
+  const found = Object.keys(rowLower).find(k => keys.includes(k));
+  return found ? rowLower[found] : '';
+}
+
+async function rcParseExcelFile(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  return rows.map(row => {
+    const rowLower = {};
+    Object.keys(row).forEach(k => { rowLower[String(k).trim().toLowerCase()] = row[k]; });
+    return {
+      barcode: String(rcParsePick(rowLower, ['barcode', 'บาร์โค้ด']) || '').trim() || null,
+      cat: String(rcParsePick(rowLower, ['cat', 'category', 'โซน', 'หมวด']) || '').trim() || null,
+      article: String(rcParsePick(rowLower, ['article', 'รหัสสินค้า', 'artical']) || '').trim(),
+      size: rcNormSize(rcParsePick(rowLower, ['size', 'ไซส์'])),
+      qty_expected: Number(rcParsePick(rowLower, ['qty', 'จำนวน'])) || 0,
+      remark: String(rcParsePick(rowLower, ['remark', 'หมายเหตุ']) || '').trim() || 'Good',
+    };
+  }).filter(r => r.article && r.size);
+}
+
+async function rcLoadOrCreateBatch(){
+  if (!rcIsStaff()) return;
+  const code = document.getElementById('rcBatchCodeInput').value.trim();
+  if (!code) { alert('กรอก Batch ID ก่อน'); return; }
+
+  let { data: batch, error } = await sb.from('reconcile_batches').select('*').eq('batch_code', code).maybeSingle();
+  if (error) { alert('โหลดรอบงานไม่สำเร็จ: ' + error.message); return; }
+
+  if (!batch) {
+    const { data: created, error: createErr } = await sb.from('reconcile_batches')
+      .insert({ batch_code: code, created_by: currentUser?.id || null }).select().single();
+    if (createErr) { alert('สร้างรอบงานไม่สำเร็จ: ' + createErr.message); return; }
+    batch = created;
+  }
+
+  rcState.batch = batch;
+  rcState.backlogOnly = false;
+  await rcLoadBatchData();
+  if (rcState.batch.status !== 'closed') document.getElementById('rcScanInput').focus();
+}
+
+async function rcLoadBatchData(){
+  const [itemsRes, scansRes] = await Promise.all([
+    sb.from('reconcile_items').select('*').eq('batch_id', rcState.batch.id).limit(5000),
+    sb.from('reconcile_scans').select('*').eq('batch_id', rcState.batch.id).limit(20000),
+  ]);
+  rcState.items = itemsRes.data || [];
+  rcState.scans = scansRes.data || [];
+  rcRenderBatchPanel();
+}
+
+async function rcBindFile(){
+  if (!rcIsStaff() || !rcState.batch) return;
+  if (rcState.batch.status === 'closed') { alert('รอบงานนี้ปิดแล้ว แก้ไขไม่ได้'); return; }
+
+  const fileInput = document.getElementById('rcFileInput');
+  const file = fileInput.files[0];
+  if (!file) { alert('เลือกไฟล์ก่อน'); return; }
+
+  const parsed = await rcParseExcelFile(file);
+  if (!parsed.length) { alert('ไม่พบข้อมูลที่ใช้ได้ในไฟล์ — ตรวจหัวคอลัมน์ Article/Size/Qty'); return; }
+  if (!confirm(`จะแทนที่ไฟล์ตั้งต้นเดิมด้วย ${parsed.length} รายการ — ดำเนินการต่อ?`)) return;
+
+  const { error: delErr } = await sb.from('reconcile_items').delete().eq('batch_id', rcState.batch.id);
+  if (delErr) { alert('ลบไฟล์ตั้งต้นเดิมไม่สำเร็จ: ' + delErr.message); return; }
+
+  const { error: insErr } = await sb.from('reconcile_items')
+    .insert(parsed.map(r => ({ ...r, batch_id: rcState.batch.id })));
+  if (insErr) { alert('บันทึกไฟล์ตั้งต้นไม่สำเร็จ: ' + insErr.message); return; }
+
+  const { error: updErr } = await sb.from('reconcile_batches')
+    .update({ source_filename: file.name }).eq('id', rcState.batch.id);
+  if (!updErr) rcState.batch.source_filename = file.name;
+
+  fileInput.value = '';
+  await rcLoadBatchData();
+}
+
+function rcSetFeedback(msg, ok){
+  const el = document.getElementById('rcScanFeedback');
+  el.textContent = msg;
+  el.style.color = ok ? 'var(--green)' : 'var(--brand)';
+}
+
+async function rcHandleScan(raw){
+  if (!rcIsStaff() || !rcState.batch) return;
+  if (rcState.batch.status === 'closed') { rcSetFeedback('รอบงานนี้ปิดแล้ว ไม่รับการยิงเพิ่ม', false); return; }
+  if (!raw || !raw.trim()) return;
+
+  const parsed = rcParseBarcode(raw);
+  if (!parsed) { rcSetFeedback('รูปแบบบาร์โค้ดไม่ถูกต้อง (ต้องเป็นตัวเลข 13 หลัก): ' + raw, false); return; }
+
+  const { article, size } = parsed;
+  const itemsForArticle = rcState.items.filter(i => i.article === article);
+  let result = 'ตรง', reason = null, qty = 1, cat = null, remark = null;
+
+  if (itemsForArticle.length === 0) {
+    result = 'ไม่ตรง'; qty = 0;
+    reason = `ไม่พบ Article ${article} ในไฟล์ตั้งต้น`;
+  } else {
+    const item = itemsForArticle.find(i => i.size === size);
+    if (!item) {
+      result = 'ไม่ตรง'; qty = 0;
+      const sizes = [...new Set(itemsForArticle.map(i => i.size))].sort().join(', ');
+      reason = `Size ไม่ตรง: ยิง ${size} / ตั้งต้นมี ${sizes}`;
+    } else {
+      cat = item.cat; remark = item.remark;
+      const acceptedSoFar = rcState.scans
+        .filter(s => s.article === article && s.size === size && s.result === 'ตรง')
+        .reduce((sum, s) => sum + (s.qty || 0), 0);
+      if (acceptedSoFar >= item.qty_expected) {
+        result = 'ไม่ตรง'; qty = 0;
+        reason = `รายการนี้ยิงครบจำนวนตามไฟล์ตั้งต้นแล้ว ${acceptedSoFar}/${item.qty_expected} ไม่รับชิ้นเกิน`;
+      }
+    }
+  }
+
+  const { data: inserted, error } = await sb.from('reconcile_scans').insert({
+    batch_id: rcState.batch.id, barcode: raw.trim(), cat, article, size, qty, result, reason, remark,
+    scanned_by: currentUser?.id || null,
+  }).select().single();
+
+  if (error) { rcSetFeedback('บันทึกการยิงไม่สำเร็จ: ' + error.message, false); return; }
+
+  rcState.scans.push(inserted);
+  rcSetFeedback(result === 'ตรง' ? `ตรง — Article ${article} / Size ${size}` : `ไม่ตรง — ${reason}`, result === 'ตรง');
+  rcRenderBatchPanel();
+}
+
+function rcBuildReportRows(){
+  return rcState.items.map(item => {
+    const scanQty = rcState.scans
+      .filter(s => s.article === item.article && s.size === item.size && s.result === 'ตรง')
+      .reduce((sum, s) => sum + (s.qty || 0), 0);
+    const remaining = Math.max(0, item.qty_expected - scanQty);
+    let status = 'ยังไม่ได้ยิง';
+    if (scanQty > 0 && scanQty < item.qty_expected) status = 'ยังไม่ครบ';
+    else if (scanQty >= item.qty_expected) status = 'ตรง';
+    return { ...item, scanQty, remaining, status };
+  });
+}
+
+function rcComputeStats(rows){
+  const baseQty = rcState.items.reduce((s, i) => s + (i.qty_expected || 0), 0);
+  const acceptedQty = rcState.scans.filter(s => s.result === 'ตรง').reduce((s, x) => s + (x.qty || 0), 0);
+  const matched = rows.filter(r => r.status === 'ตรง').length;
+  const partial = rows.filter(r => r.status === 'ยังไม่ครบ').length;
+  const notScanned = rows.filter(r => r.status === 'ยังไม่ได้ยิง').length;
+  const totalScanRows = rcState.scans.length;
+  const errorRows = rcState.scans.filter(s => s.result === 'ไม่ตรง' && (s.reason || '').startsWith('ไม่พบ Article')).length;
+  const rejectedScans = rcState.scans.filter(s => s.result === 'ไม่ตรง').length - errorRows;
+  return {
+    baseQty, acceptedQty, remainingQty: baseQty - acceptedQty,
+    baseLines: rcState.items.length, matched, partial, notScanned,
+    totalScanRows, errorRows, rejectedScans,
+  };
+}
+
+function rcRenderBatchPanel(){
+  document.getElementById('rcBatchPanel').hidden = false;
+  document.getElementById('rcBatchCodeLabel').textContent = rcState.batch.batch_code;
+  document.getElementById('rcBatchStatusLabel').textContent = rcState.batch.status === 'closed'
+    ? `ปิดแล้ว (${liveFmtDate(rcState.batch.closed_at)})`
+    : 'เปิดใช้งาน';
+  document.getElementById('rcSourceFileLabel').textContent = rcState.batch.source_filename
+    ? `ไฟล์: ${rcState.batch.source_filename}`
+    : 'ยังไม่ได้ผูกไฟล์';
+
+  const rows = rcBuildReportRows();
+  const stats = rcComputeStats(rows);
+
+  document.getElementById('rcStatBaseQty').textContent = liveFmtNum(stats.baseQty);
+  document.getElementById('rcStatAcceptedQty').textContent = liveFmtNum(stats.acceptedQty);
+  document.getElementById('rcStatRemainingQty').textContent = liveFmtNum(stats.remainingQty);
+  document.getElementById('rcStatLines').textContent = `${stats.matched} / ${stats.partial} / ${stats.notScanned}`;
+  document.getElementById('rcStatBaseLines').textContent = liveFmtNum(stats.baseLines);
+  document.getElementById('rcStatScans').textContent = `${stats.totalScanRows} / ${stats.rejectedScans} / ${stats.errorRows}`;
+
+  const isClosed = rcState.batch.status === 'closed';
+  ['rcScanInput', 'rcFileInput', 'rcBindFileBtn', 'rcClearScansBtn', 'rcDeleteArticleBtn', 'rcCloseBatchBtn']
+    .forEach(id => { document.getElementById(id).disabled = isClosed; });
+  document.getElementById('rcCloseBatchBtn').textContent = isClosed ? 'ปิดงานแล้ว' : 'ปิดงาน / บันทึก History';
+
+  const displayRows = rcState.backlogOnly ? rows.filter(r => r.status !== 'ตรง') : rows;
+  const tbody = document.getElementById('rcReportBody');
+  tbody.innerHTML = displayRows.length === 0
+    ? '<tr><td colspan="7" class="empty-note">ไม่มีรายการ</td></tr>'
+    : displayRows.map(r => `
+      <tr>
+        <td>${r.cat || '—'}</td>
+        <td class="mono">${r.article}</td>
+        <td class="mono">${r.size}</td>
+        <td class="num">${liveFmtNum(r.qty_expected)}</td>
+        <td class="num">${liveFmtNum(r.scanQty)}</td>
+        <td class="num">${liveFmtNum(r.remaining)}</td>
+        <td><span class="tag ${r.status === 'ตรง' ? 'in' : r.status === 'ยังไม่ครบ' ? 'wait' : 'out'}">${r.status}</span></td>
+      </tr>`).join('');
+}
+
+document.getElementById('rcLoadBatchBtn').addEventListener('click', rcLoadOrCreateBatch);
+document.getElementById('rcBatchCodeInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); rcLoadOrCreateBatch(); }
+});
+
+document.getElementById('rcNewRoundBtn').addEventListener('click', () => {
+  rcState.batch = null; rcState.items = []; rcState.scans = []; rcState.backlogOnly = false;
+  document.getElementById('rcBatchPanel').hidden = true;
+  document.getElementById('rcBatchCodeInput').value = '';
+  document.getElementById('rcBatchCodeInput').focus();
+});
+
+document.getElementById('rcBindFileBtn').addEventListener('click', rcBindFile);
+
+document.getElementById('rcScanInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = e.target.value;
+    e.target.value = '';
+    rcHandleScan(val);
+  }
+});
+
+document.getElementById('rcViewBacklogBtn').addEventListener('click', (e) => {
+  rcState.backlogOnly = !rcState.backlogOnly;
+  e.target.textContent = rcState.backlogOnly ? 'แสดงทั้งหมด' : 'ดูรายการค้าง';
+  if (rcState.batch) rcRenderBatchPanel();
+});
+
+document.getElementById('rcClearScansBtn').addEventListener('click', async () => {
+  if (!rcIsStaff() || !rcState.batch || rcState.batch.status === 'closed') return;
+  if (!confirm('ล้างผลการยิงทั้งหมดของรอบนี้? ไม่สามารถย้อนกลับได้')) return;
+  const { error } = await sb.from('reconcile_scans').delete().eq('batch_id', rcState.batch.id);
+  if (error) { alert('ล้างผลการยิงไม่สำเร็จ: ' + error.message); return; }
+  rcState.scans = [];
+  rcRenderBatchPanel();
+});
+
+document.getElementById('rcDeleteArticleBtn').addEventListener('click', async () => {
+  if (!rcIsStaff() || !rcState.batch || rcState.batch.status === 'closed') return;
+  const article = document.getElementById('rcDeleteArticleInput').value.trim();
+  if (!article) return;
+  if (!confirm(`ลบรายการ Article ${article} ออกจากไฟล์ตั้งต้นของรอบนี้?`)) return;
+  const { error } = await sb.from('reconcile_items').delete().eq('batch_id', rcState.batch.id).eq('article', article);
+  if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+  document.getElementById('rcDeleteArticleInput').value = '';
+  await rcLoadBatchData();
+});
+
+document.getElementById('rcExportReportBtn').addEventListener('click', () => {
+  if (!rcState.batch) return;
+  const rows = rcBuildReportRows();
+  const header = ['Batch_ID', 'Cat', 'Article', 'Size', 'Base_Qty', 'Scan_Qty', 'Remaining_Qty', 'Result'];
+  const lines = [header.join(',')].concat(rows.map(r => [
+    rcState.batch.batch_code, r.cat || '', r.article, r.size, r.qty_expected, r.scanQty, r.remaining, r.status,
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')));
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `reconcile-${rcState.batch.batch_code}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+document.getElementById('rcCloseBatchBtn').addEventListener('click', async () => {
+  if (!rcIsStaff() || !rcState.batch || rcState.batch.status === 'closed') return;
+  if (!confirm('ปิดงานและบันทึก History? หลังปิดจะแก้ไขรอบนี้ไม่ได้อีก')) return;
+
+  const rows = rcBuildReportRows();
+  const stats = rcComputeStats(rows);
+  const { error: histErr } = await sb.from('reconcile_history').insert({
+    batch_id: rcState.batch.id,
+    closed_by: currentUser?.email || currentUser?.id || 'unknown',
+    base_qty: stats.baseQty, accepted_qty: stats.acceptedQty, remaining_qty: stats.remainingQty,
+    base_lines: stats.baseLines, matched_lines: stats.matched, partial_lines: stats.partial,
+    not_scanned_lines: stats.notScanned, total_scan_rows: stats.totalScanRows,
+    rejected_scans: stats.rejectedScans, error_rows: stats.errorRows,
+  });
+  if (histErr) { alert('บันทึก History ไม่สำเร็จ: ' + histErr.message); return; }
+
+  const closedAt = new Date().toISOString();
+  const { error: closeErr } = await sb.from('reconcile_batches')
+    .update({ status: 'closed', closed_at: closedAt }).eq('id', rcState.batch.id);
+  if (closeErr) { alert('ปิดงานไม่สำเร็จ: ' + closeErr.message); return; }
+
+  rcState.batch.status = 'closed';
+  rcState.batch.closed_at = closedAt;
+  rcRenderBatchPanel();
 });
 
 // ─── View switching ───────────────────────────────────────

@@ -1,0 +1,712 @@
+From 89a547f8aebadf1cde91915dd267f7a39c473c37 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 22 Sep 2026 09:17:49 +0000
+Subject: [PATCH 2/2] =?UTF-8?q?Build=20out=20=E0=B8=81=E0=B8=A3=E0=B8=B0?=
+ =?UTF-8?q?=E0=B8=97=E0=B8=9A=E0=B8=A2=E0=B8=AD=E0=B8=94=20(barcode=20reco?=
+ =?UTF-8?q?ncile)=20UI=20and=20matching=20logic?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Implements the view-reconcile UI and logic that was previously only
+documented but never built (see prior correction commit). Matching
+logic is reverse-engineered from real T_Reconcile_Base/Scan/Report data
+from the legacy Google Sheets system rather than guessed:
+
+- 13-digit barcodes decode to Article+Size ([prefix][Article 7][pad
+  "0"][Size 3][check digit]); items are matched by Article+Size, not
+  literal barcode.
+- Over-scan cap: once accepted scans for an Article+Size reach its
+  qty_expected, further scans are rejected (not over-counted) with the
+  same rejection-reason wording as the legacy tool.
+- Per-scan result is binary (ตรง/ไม่ตรง) but the report is 3-way per
+  line (ตรง/ยังไม่ครบ/ยังไม่ได้ยิง), matching T_Reconcile_Report.
+- Adds reconcile_history (append-only, written on ปิดงาน) and a
+  remark column + nullable barcode on reconcile_items to
+  reconcile-schema.sql — re-run it in Supabase to pick up both.
+
+Verified with a headless-browser smoke test (no console errors, XLSX/
+Supabase clients load, barcode parser matches real examples, report/
+stats rendering matches expected values for a synthetic batch) since
+this sandbox can't authenticate against the production Supabase
+project. CLAUDE.md documents which parts (the error vs. rejected-scan
+split) are inferred rather than confirmed against the legacy system.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017pGC9JYYL1kKxCkMpsrWzf
+---
+ CHANGELOG.md         |  17 ++
+ CLAUDE.md            |  82 ++++++---
+ Index/index.html     | 394 ++++++++++++++++++++++++++++++++++++++++++-
+ reconcile-schema.sql |  57 ++++++-
+ 4 files changed, 516 insertions(+), 34 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index e78e1a5..471a9d2 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -17,6 +17,23 @@ by date.
+   "ยังไม่ได้สร้าง UI ส่วนนี้" placeholder. The actual UI + matching logic
+   was built later the same day once real data from the legacy system was
+   available — see the entry below.
++- Built out the "กระทบยอด" (barcode reconcile) UI in `Index/index.html`
++  for real this time (`view-reconcile`), plus matching logic
++  reverse-engineered from real `T_Reconcile_Base`/`T_Reconcile_Scan`/
++  `T_Reconcile_Report` data from the legacy Google Sheets system:
++  โหลด/สร้างรอบงาน, ผูกไฟล์ตั้งต้นกับรอบนี้ (SheetJS, replaces existing
++  items), ยิงบาร์โค้ด (parses 13-digit barcodes into Article+Size,
++  matches against the ไฟล์ตั้งต้น with an over-scan cap so scans past a
++  line's qty are rejected instead of over-counted), live stats
++  (ยอดตั้งต้น/ยอดยิงสำเร็จ/ผลต่าง, ตรง/ยังไม่ครบ/ยังไม่ได้ยิง line
++  counts), ดูรายการค้าง, สร้างรายงานลูกค้า (CSV), ล้างผลการยิง,
++  ลบรายการตาม Article, and ปิดงาน/บันทึก History (closes the batch
++  read-only and writes a `reconcile_history` row). Added
++  `reconcile_history` table and a `remark` column on `reconcile_items` to
++  `reconcile-schema.sql` (re-run it in Supabase to pick up both). See
++  CLAUDE.md for the full write-up, including which parts (the
++  error/rejected-scan split) are inferred rather than confirmed against
++  the legacy system.
+ - Dates formatted as dd/mm/yyyy instead of yyyy-mm-dd in live tables,
+   the Home page's recent-documents table, and CSV exports.
+ - Built out "สินค้าคืนคลัง" (Return) as a full live view (filters, daily
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 29c6ac8..015ee02 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -53,7 +53,7 @@ KPIs, etc.) have data to show without querying MySQL on every page load.
+ | `api-server.js` | Express server. Serves `Index/` as static files **and** a `/api/:view` route (`dispatch`, `receiving`, or `receiving-return`) that queries MySQL directly. LAN-only, no auth. |
+ | `sync.js` | One-shot + cron-scheduled script: MySQL → Supabase incremental sync, watermarked by each row's `updatedAt`. Run with `npm start`. |
+ | `schema.sql` | Supabase/Postgres schema mirroring the MySQL `dispatch`/`receiving` tables. Run once in the Supabase SQL Editor before the first sync. |
+-| `reconcile-schema.sql` | Supabase schema for the "กระทบยอด" (barcode reconcile) feature — `reconcile_batches`/`reconcile_items`/`reconcile_scans`, all Supabase-only (no MySQL involved). Run once before using that menu. |
++| `reconcile-schema.sql` | Supabase schema for the "กระทบยอด" (barcode reconcile) feature — `reconcile_batches`/`reconcile_items`/`reconcile_scans`/`reconcile_history`, all Supabase-only (no MySQL involved). Run once before using that menu. |
+ | `.env.example` | Template for local secrets (MySQL creds, Supabase URL/keys, API port). **Never commit a real `.env`.** |
+ | `sync-state.json` | Auto-created by `sync.js`; stores the per-table sync watermark. Git-ignored. Delete it to force a full re-sync. |
+ | `README.md` | Setup instructions for a human running `sync.js`/`api-server.js` on a Windows PC. |
+@@ -118,45 +118,75 @@ by query params — if the return-receiver code ever changes, update
+ 
+ ## กระทบยอด (barcode reconcile) — Supabase-only, no MySQL involved
+ 
+-> **Correction (2026-09-22, later the same day):** this section previously
+-> described a UI/JS implementation that did **not** actually exist — the
+-> 2026-09-22 commit that introduced `reconcile-schema.sql` only added the
+-> schema file (plus this doc and the CHANGELOG entry), and never touched
+-> `Index/index.html`. `view-reconcile` was still the generic
+-> `ยังไม่ได้สร้าง UI ส่วนนี้` placeholder. The description below has been
+-> rewritten to match what was actually built afterward, once real field
+-> data from the legacy Google Sheets system (`T_Reconcile_Base/Scan/Report`)
+-> was available to reverse-engineer the real matching/scan logic from.
++> **Correction (2026-09-22, later the same day):** an earlier version of
++> this section described a UI/JS implementation that did **not** actually
++> exist — the first 2026-09-22 commit only added `reconcile-schema.sql`
++> (plus docs) and never touched `Index/index.html`. The description below
++> reflects the actual build that followed, once real field data from the
++> legacy Google Sheets system (`T_Reconcile_Base/Scan/Report`) was
++> available to reverse-engineer the matching/scan logic from — this is a
++> from-scratch Supabase implementation, not a port of that system's code.
+ 
+ Unlike Dispatch/Transfer/Return, this feature doesn't touch MySQL or
+ `api-server.js` at all — it's a standalone Excel-upload + barcode-scan
+ workflow backed entirely by Supabase (`reconcile-schema.sql`):
+-`reconcile_batches` (one row per "Batch ID / รอบงาน"), `reconcile_items`
++`reconcile_batches` (one row per "Batch ID / รอบงาน", `batch_code` is a
++free-text code like `W37-38`, not auto-numbered), `reconcile_items`
+ (rows parsed client-side from the uploaded "ไฟล์ตั้งต้น" — the expected
+-stock), `reconcile_scans` (one row per barcode scan, matched against
+-`reconcile_items` to decide ตรง/ไม่ตรง). All state (`rcState` in
+-`Index/index.html`) is per-view-session, reloaded from Supabase on
+-"โหลดรอบงาน"/"รีเฟรช".
+-
++stock, keyed by `article`+`size`, plus a warehouse zone/rack code `cat`
++and a condition `remark` e.g. "Good"), `reconcile_scans` (one row per
++barcode scan), `reconcile_history` (append-only log written on close).
++All state (`rcState` in `Index/index.html`) is per-view-session, reloaded
++from Supabase on "โหลด/สร้างรอบงาน".
++
++- **Matching is by Article+Size, not literal barcode.** `rcParseBarcode`
++  decodes each scanned 13-digit barcode as
++  `[prefix 1][Article 7][pad "0"][Size 3][check digit 1]` (confirmed
++  against real scan data — the prefix and check digit vary and are
++  ignored). The decoded article+size is looked up in `rcState.items`.
++- **Three rejection reasons**, each producing a `reconcile_scans` row with
++  `result='ไม่ตรง'`, `qty=0`, and a specific `reason` string (see
++  `rcHandleScan`):
++  - Article not in the batch's ไฟล์ตั้งต้น at all →
++    `ไม่พบ Article {article} ในไฟล์ตั้งต้น`
++  - Article exists but scanned size doesn't match any of its sizes →
++    `Size ไม่ตรง: ยิง {size} / ตั้งต้นมี {sizes...}`
++  - Article+size exists but already scanned up to its `qty_expected` →
++    `รายการนี้ยิงครบจำนวนตามไฟล์ตั้งต้นแล้ว {n}/{qty_expected} ไม่รับชิ้นเกิน`
++    (over-scan cap — excess scans are rejected, never counted past the
++    expected quantity for that line)
++- **Per-scan result is binary** (`ตรง`/`ไม่ตรง`, matches the `reconcile_scans.result`
++  check constraint) but **the report (`rcBuildReportRows`) is 3-way per
++  Article+Size line**: `ตรง` (fully scanned), `ยังไม่ครบ` (partially
++  scanned), `ยังไม่ได้ยิง` (not scanned at all) — this only shows up when
++  aggregating scans against each item's `qty_expected`.
++- Batch stats (`rcComputeStats`) split rejected scans into "ไม่พบ
++  Article" (`errorRows`, genuinely unknown articles — a data problem)
++  vs. other rejections (`rejectedScans`, mostly over-scan cap hits) —
++  this split is inferred/designed, not confirmed against the legacy
++  system (its `T_Reconcile_History`/`Error Rows` tab was inaccessible
++  when this was built).
+ - Excel parsing (`rcParseExcelFile`) runs entirely in the browser via
+   SheetJS (`xlsx` CDN script in `<head>`) — nothing is uploaded to a
+   server. Column matching in `rcParsePick` is best-effort/flexible
+-  (looks for header names like `barcode`/`บาร์โค้ด`, `article`, `size`,
+-  `qty`, case- and whitespace-insensitive); adjust the `keys` arrays
+-  there if a real source file uses different headers.
++  (looks for header names like `cat`/`โซน`, `article`, `size`, `qty`,
++  `remark`/`หมายเหตุ`, case- and whitespace-insensitive); adjust the
++  `keys` arrays there if a real source file uses different headers.
+ - "ผูกไฟล์ตั้งต้นกับรอบนี้" **replaces** all `reconcile_items` for that
+   batch (delete then insert) — re-uploading is destructive by design,
+   not additive.
+-- A closed batch (`status = 'closed'`, set by "ปิดงาน / บันทึก History")
+-  is read-only in the UI (scan input disabled, write buttons guard on
+-  `rcState.batch.status`) — closing is how this feature's "History" is
+-  kept, there's no separate history table.
++- "ปิดงาน / บันทึก History" freezes the batch's summary numbers plus who
++  closed it into a new `reconcile_history` row (append-only — a batch
++  could in principle be reopened directly in Supabase and closed again,
++  producing a second history row for the same batch), then sets
++  `reconcile_batches.status = 'closed'`. A closed batch is read-only in
++  the UI (scan input and write buttons disabled, guarded on
++  `rcState.batch.status` both client-side and by re-checking before each
++  write) — there's no "reopen" button in the UI.
+ - UI reference only, not a spec to match pixel-for-pixel: the layout was
+   adapted from a screenshot of a separate, already-existing barcode
+   reconcile tool the warehouse already uses day-to-day — the button/stat
+-  labels were kept close to that tool for familiarity, but this
+-  implementation is a fresh build against Supabase, not a port of that
+-  tool's actual code.
++  labels were kept close to that tool for familiarity.
+ 
+ ## Secrets / credentials
+ 
+diff --git a/Index/index.html b/Index/index.html
+index e952bf7..91464d3 100644
+--- a/Index/index.html
++++ b/Index/index.html
+@@ -8,6 +8,7 @@
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+ <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
++<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+ <style>
+   :root{
+     --bg: #F7F5F3;
+@@ -849,7 +850,78 @@
+     <section class="view" id="view-bulklocation"><div class="panel empty-note">ตำแหน่งจัดเก็บ — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+     <section class="view" id="view-stockonhand"><div class="panel empty-note">สต็อกคงเหลือ — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
+     <section class="view" id="view-ocrdoc"><div class="panel empty-note">OCR ตรวจเอกสาร — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
+-    <section class="view" id="view-reconcile"><div class="panel empty-note">กระทบยอด — ยังไม่ได้สร้าง UI ส่วนนี้ (เฉพาะ Admin/Warehouse Staff)</div></section>
++    <section class="view" id="view-reconcile">
++      <div class="live-toolbar">
++        <input type="text" class="live-input" id="rcBatchCodeInput" placeholder="Batch ID / รอบงาน เช่น W37-38" style="width:220px;">
++        <button class="live-btn primary" id="rcLoadBatchBtn">โหลด/สร้างรอบงาน</button>
++        <span style="flex:1"></span>
++        <button class="live-btn" id="rcNewRoundBtn">เริ่มรอบใหม่</button>
++      </div>
++
++      <div id="rcBatchPanel" hidden>
++        <div class="section-head">
++          <h3>รอบงาน <span class="mono" id="rcBatchCodeLabel"></span></h3>
++          <div class="hint" id="rcBatchStatusLabel"></div>
++        </div>
++
++        <div class="bento" style="grid-template-columns:repeat(3,1fr);">
++          <div class="kpi">
++            <div class="label">ยอดตั้งต้น / ยอดยิงสำเร็จ</div>
++            <div class="value num"><span id="rcStatBaseQty">0</span> / <span id="rcStatAcceptedQty">0</span></div>
++            <div class="delta">คงเหลือ <span id="rcStatRemainingQty" class="num">0</span> ชิ้น</div>
++          </div>
++          <div class="kpi">
++            <div class="label">บรรทัดตั้งต้น: ตรง / ยังไม่ครบ / ยังไม่ยิง</div>
++            <div class="value num" id="rcStatLines" style="font-size:20px;">0 / 0 / 0</div>
++            <div class="delta">จากทั้งหมด <span id="rcStatBaseLines" class="num">0</span> บรรทัด</div>
++          </div>
++          <div class="kpi">
++            <div class="label">ยิงทั้งหมด / ถูกปฏิเสธ / ไม่พบ Article</div>
++            <div class="value num" id="rcStatScans" style="font-size:20px;">0 / 0 / 0</div>
++            <div class="delta" id="rcSourceFileLabel">ยังไม่ได้ผูกไฟล์</div>
++          </div>
++        </div>
++
++        <div class="section-head">
++          <h3>ไฟล์ตั้งต้น</h3>
++          <div class="hint">อัปโหลดแล้วจะแทนที่รายการเดิมทั้งหมดของรอบนี้</div>
++        </div>
++        <div class="live-toolbar">
++          <input type="file" class="live-input" id="rcFileInput" accept=".xlsx,.xls,.csv">
++          <button class="live-btn primary" id="rcBindFileBtn">ผูกไฟล์ตั้งต้นกับรอบนี้</button>
++        </div>
++
++        <div class="section-head">
++          <h3>ยิงบาร์โค้ด</h3>
++          <div class="hint">พิมพ์/สแกนแล้วกด Enter</div>
++        </div>
++        <div class="live-toolbar">
++          <input type="text" class="live-input" id="rcScanInput" placeholder="สแกนบาร์โค้ดที่นี่…" style="flex:1; min-width:240px;" autocomplete="off">
++        </div>
++        <div class="foot-note" id="rcScanFeedback" style="margin-top:0; border-top:none; padding-top:0;"></div>
++
++        <div class="live-toolbar" style="margin-top:18px;">
++          <button class="live-btn" id="rcViewBacklogBtn">ดูรายการค้าง</button>
++          <button class="live-btn" id="rcClearScansBtn">ล้างผลการยิง</button>
++          <input type="text" class="live-input" id="rcDeleteArticleInput" placeholder="Article ที่จะลบ" style="width:140px;">
++          <button class="live-btn" id="rcDeleteArticleBtn">ลบรายการตาม Article</button>
++          <span style="flex:1"></span>
++          <button class="live-btn" id="rcExportReportBtn">สร้างรายงานลูกค้า (CSV)</button>
++          <button class="live-btn primary" id="rcCloseBatchBtn">ปิดงาน / บันทึก History</button>
++        </div>
++
++        <div class="panel">
++          <table>
++            <thead>
++              <tr><th>Cat</th><th>Article</th><th>Size</th><th class="num">ยอดตั้งต้น</th><th class="num">ยอดยิง</th><th class="num">คงเหลือ</th><th>ผล</th></tr>
++            </thead>
++            <tbody id="rcReportBody"><tr><td colspan="7" class="empty-note">ยังไม่มีไฟล์ตั้งต้น</td></tr></tbody>
++          </table>
++        </div>
++
++        <div class="foot-note">จับคู่บาร์โค้ดด้วย Article+Size กับไฟล์ตั้งต้น (ไม่เทียบบาร์โค้ดตรงตัว) — ยิงเกินจำนวนที่ระบุไว้จะไม่ถูกนับซ้ำ · ปิดงานแล้วรอบนี้จะแก้ไขไม่ได้อีก ต้องเริ่มรอบใหม่</div>
++      </div>
++    </section>
+     <section class="view" id="view-stockmovement"><div class="panel empty-note">ความเคลื่อนไหวสต็อก — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
+     <section class="view" id="view-history"><div class="panel empty-note">ประวัติเอกสาร — ยังไม่ได้สร้าง UI ส่วนนี้</div></section>
+ 
+@@ -1073,6 +1145,326 @@ document.querySelectorAll('[data-live][data-action]').forEach(el => {
+   });
+ });
+ 
++// ─── กระทบยอด (barcode reconcile) — Supabase-only, no MySQL involved ───
++// Matches legacy warehouse-tool behavior reverse-engineered from real
++// T_Reconcile_Base/Scan/Report data: items are matched by Article+Size
++// (not literal barcode), accepted scans are capped at each item's
++// qty_expected (excess scans are rejected, not over-counted), and the
++// per-line report status is one of three states (ตรง / ยังไม่ครบ /
++// ยังไม่ได้ยิง) even though an individual scan's result is always binary
++// (ตรง/ไม่ตรง). See CLAUDE.md for the full write-up.
++const rcState = { batch: null, items: [], scans: [], backlogOnly: false };
++
++function rcIsStaff(){ return currentRole === 'admin' || currentRole === 'warehouse_staff'; }
++
++// Barcode format (13 digits, confirmed against real scan data):
++// [prefix 1][Article 7][pad "0"][Size 3][check digit 1]
++function rcParseBarcode(raw){
++  const b = String(raw || '').trim();
++  if (!/^\d{13}$/.test(b)) return null;
++  return { article: b.slice(1, 8), size: b.slice(9, 12) };
++}
++
++function rcNormSize(v){
++  const digits = String(v ?? '').trim().replace(/[^\d]/g, '');
++  return digits ? digits.padStart(3, '0') : String(v ?? '').trim();
++}
++
++// Best-effort/flexible column matching for the uploaded ไฟล์ตั้งต้น —
++// adjust these `keys` arrays if a real source file uses different headers.
++function rcParsePick(rowLower, keys){
++  const found = Object.keys(rowLower).find(k => keys.includes(k));
++  return found ? rowLower[found] : '';
++}
++
++async function rcParseExcelFile(file){
++  const buf = await file.arrayBuffer();
++  const wb = XLSX.read(buf, { type: 'array' });
++  const sheet = wb.Sheets[wb.SheetNames[0]];
++  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
++  return rows.map(row => {
++    const rowLower = {};
++    Object.keys(row).forEach(k => { rowLower[String(k).trim().toLowerCase()] = row[k]; });
++    return {
++      barcode: String(rcParsePick(rowLower, ['barcode', 'บาร์โค้ด']) || '').trim() || null,
++      cat: String(rcParsePick(rowLower, ['cat', 'category', 'โซน', 'หมวด']) || '').trim() || null,
++      article: String(rcParsePick(rowLower, ['article', 'รหัสสินค้า', 'artical']) || '').trim(),
++      size: rcNormSize(rcParsePick(rowLower, ['size', 'ไซส์'])),
++      qty_expected: Number(rcParsePick(rowLower, ['qty', 'จำนวน'])) || 0,
++      remark: String(rcParsePick(rowLower, ['remark', 'หมายเหตุ']) || '').trim() || 'Good',
++    };
++  }).filter(r => r.article && r.size);
++}
++
++async function rcLoadOrCreateBatch(){
++  if (!rcIsStaff()) return;
++  const code = document.getElementById('rcBatchCodeInput').value.trim();
++  if (!code) { alert('กรอก Batch ID ก่อน'); return; }
++
++  let { data: batch, error } = await sb.from('reconcile_batches').select('*').eq('batch_code', code).maybeSingle();
++  if (error) { alert('โหลดรอบงานไม่สำเร็จ: ' + error.message); return; }
++
++  if (!batch) {
++    const { data: created, error: createErr } = await sb.from('reconcile_batches')
++      .insert({ batch_code: code, created_by: currentUser?.id || null }).select().single();
++    if (createErr) { alert('สร้างรอบงานไม่สำเร็จ: ' + createErr.message); return; }
++    batch = created;
++  }
++
++  rcState.batch = batch;
++  rcState.backlogOnly = false;
++  await rcLoadBatchData();
++  if (rcState.batch.status !== 'closed') document.getElementById('rcScanInput').focus();
++}
++
++async function rcLoadBatchData(){
++  const [itemsRes, scansRes] = await Promise.all([
++    sb.from('reconcile_items').select('*').eq('batch_id', rcState.batch.id).limit(5000),
++    sb.from('reconcile_scans').select('*').eq('batch_id', rcState.batch.id).limit(20000),
++  ]);
++  rcState.items = itemsRes.data || [];
++  rcState.scans = scansRes.data || [];
++  rcRenderBatchPanel();
++}
++
++async function rcBindFile(){
++  if (!rcIsStaff() || !rcState.batch) return;
++  if (rcState.batch.status === 'closed') { alert('รอบงานนี้ปิดแล้ว แก้ไขไม่ได้'); return; }
++
++  const fileInput = document.getElementById('rcFileInput');
++  const file = fileInput.files[0];
++  if (!file) { alert('เลือกไฟล์ก่อน'); return; }
++
++  const parsed = await rcParseExcelFile(file);
++  if (!parsed.length) { alert('ไม่พบข้อมูลที่ใช้ได้ในไฟล์ — ตรวจหัวคอลัมน์ Article/Size/Qty'); return; }
++  if (!confirm(`จะแทนที่ไฟล์ตั้งต้นเดิมด้วย ${parsed.length} รายการ — ดำเนินการต่อ?`)) return;
++
++  const { error: delErr } = await sb.from('reconcile_items').delete().eq('batch_id', rcState.batch.id);
++  if (delErr) { alert('ลบไฟล์ตั้งต้นเดิมไม่สำเร็จ: ' + delErr.message); return; }
++
++  const { error: insErr } = await sb.from('reconcile_items')
++    .insert(parsed.map(r => ({ ...r, batch_id: rcState.batch.id })));
++  if (insErr) { alert('บันทึกไฟล์ตั้งต้นไม่สำเร็จ: ' + insErr.message); return; }
++
++  const { error: updErr } = await sb.from('reconcile_batches')
++    .update({ source_filename: file.name }).eq('id', rcState.batch.id);
++  if (!updErr) rcState.batch.source_filename = file.name;
++
++  fileInput.value = '';
++  await rcLoadBatchData();
++}
++
++function rcSetFeedback(msg, ok){
++  const el = document.getElementById('rcScanFeedback');
++  el.textContent = msg;
++  el.style.color = ok ? 'var(--green)' : 'var(--brand)';
++}
++
++async function rcHandleScan(raw){
++  if (!rcIsStaff() || !rcState.batch) return;
++  if (rcState.batch.status === 'closed') { rcSetFeedback('รอบงานนี้ปิดแล้ว ไม่รับการยิงเพิ่ม', false); return; }
++  if (!raw || !raw.trim()) return;
++
++  const parsed = rcParseBarcode(raw);
++  if (!parsed) { rcSetFeedback('รูปแบบบาร์โค้ดไม่ถูกต้อง (ต้องเป็นตัวเลข 13 หลัก): ' + raw, false); return; }
++
++  const { article, size } = parsed;
++  const itemsForArticle = rcState.items.filter(i => i.article === article);
++  let result = 'ตรง', reason = null, qty = 1, cat = null, remark = null;
++
++  if (itemsForArticle.length === 0) {
++    result = 'ไม่ตรง'; qty = 0;
++    reason = `ไม่พบ Article ${article} ในไฟล์ตั้งต้น`;
++  } else {
++    const item = itemsForArticle.find(i => i.size === size);
++    if (!item) {
++      result = 'ไม่ตรง'; qty = 0;
++      const sizes = [...new Set(itemsForArticle.map(i => i.size))].sort().join(', ');
++      reason = `Size ไม่ตรง: ยิง ${size} / ตั้งต้นมี ${sizes}`;
++    } else {
++      cat = item.cat; remark = item.remark;
++      const acceptedSoFar = rcState.scans
++        .filter(s => s.article === article && s.size === size && s.result === 'ตรง')
++        .reduce((sum, s) => sum + (s.qty || 0), 0);
++      if (acceptedSoFar >= item.qty_expected) {
++        result = 'ไม่ตรง'; qty = 0;
++        reason = `รายการนี้ยิงครบจำนวนตามไฟล์ตั้งต้นแล้ว ${acceptedSoFar}/${item.qty_expected} ไม่รับชิ้นเกิน`;
++      }
++    }
++  }
++
++  const { data: inserted, error } = await sb.from('reconcile_scans').insert({
++    batch_id: rcState.batch.id, barcode: raw.trim(), cat, article, size, qty, result, reason, remark,
++    scanned_by: currentUser?.id || null,
++  }).select().single();
++
++  if (error) { rcSetFeedback('บันทึกการยิงไม่สำเร็จ: ' + error.message, false); return; }
++
++  rcState.scans.push(inserted);
++  rcSetFeedback(result === 'ตรง' ? `ตรง — Article ${article} / Size ${size}` : `ไม่ตรง — ${reason}`, result === 'ตรง');
++  rcRenderBatchPanel();
++}
++
++function rcBuildReportRows(){
++  return rcState.items.map(item => {
++    const scanQty = rcState.scans
++      .filter(s => s.article === item.article && s.size === item.size && s.result === 'ตรง')
++      .reduce((sum, s) => sum + (s.qty || 0), 0);
++    const remaining = Math.max(0, item.qty_expected - scanQty);
++    let status = 'ยังไม่ได้ยิง';
++    if (scanQty > 0 && scanQty < item.qty_expected) status = 'ยังไม่ครบ';
++    else if (scanQty >= item.qty_expected) status = 'ตรง';
++    return { ...item, scanQty, remaining, status };
++  });
++}
++
++function rcComputeStats(rows){
++  const baseQty = rcState.items.reduce((s, i) => s + (i.qty_expected || 0), 0);
++  const acceptedQty = rcState.scans.filter(s => s.result === 'ตรง').reduce((s, x) => s + (x.qty || 0), 0);
++  const matched = rows.filter(r => r.status === 'ตรง').length;
++  const partial = rows.filter(r => r.status === 'ยังไม่ครบ').length;
++  const notScanned = rows.filter(r => r.status === 'ยังไม่ได้ยิง').length;
++  const totalScanRows = rcState.scans.length;
++  const errorRows = rcState.scans.filter(s => s.result === 'ไม่ตรง' && (s.reason || '').startsWith('ไม่พบ Article')).length;
++  const rejectedScans = rcState.scans.filter(s => s.result === 'ไม่ตรง').length - errorRows;
++  return {
++    baseQty, acceptedQty, remainingQty: baseQty - acceptedQty,
++    baseLines: rcState.items.length, matched, partial, notScanned,
++    totalScanRows, errorRows, rejectedScans,
++  };
++}
++
++function rcRenderBatchPanel(){
++  document.getElementById('rcBatchPanel').hidden = false;
++  document.getElementById('rcBatchCodeLabel').textContent = rcState.batch.batch_code;
++  document.getElementById('rcBatchStatusLabel').textContent = rcState.batch.status === 'closed'
++    ? `ปิดแล้ว (${liveFmtDate(rcState.batch.closed_at)})`
++    : 'เปิดใช้งาน';
++  document.getElementById('rcSourceFileLabel').textContent = rcState.batch.source_filename
++    ? `ไฟล์: ${rcState.batch.source_filename}`
++    : 'ยังไม่ได้ผูกไฟล์';
++
++  const rows = rcBuildReportRows();
++  const stats = rcComputeStats(rows);
++
++  document.getElementById('rcStatBaseQty').textContent = liveFmtNum(stats.baseQty);
++  document.getElementById('rcStatAcceptedQty').textContent = liveFmtNum(stats.acceptedQty);
++  document.getElementById('rcStatRemainingQty').textContent = liveFmtNum(stats.remainingQty);
++  document.getElementById('rcStatLines').textContent = `${stats.matched} / ${stats.partial} / ${stats.notScanned}`;
++  document.getElementById('rcStatBaseLines').textContent = liveFmtNum(stats.baseLines);
++  document.getElementById('rcStatScans').textContent = `${stats.totalScanRows} / ${stats.rejectedScans} / ${stats.errorRows}`;
++
++  const isClosed = rcState.batch.status === 'closed';
++  ['rcScanInput', 'rcFileInput', 'rcBindFileBtn', 'rcClearScansBtn', 'rcDeleteArticleBtn', 'rcCloseBatchBtn']
++    .forEach(id => { document.getElementById(id).disabled = isClosed; });
++  document.getElementById('rcCloseBatchBtn').textContent = isClosed ? 'ปิดงานแล้ว' : 'ปิดงาน / บันทึก History';
++
++  const displayRows = rcState.backlogOnly ? rows.filter(r => r.status !== 'ตรง') : rows;
++  const tbody = document.getElementById('rcReportBody');
++  tbody.innerHTML = displayRows.length === 0
++    ? '<tr><td colspan="7" class="empty-note">ไม่มีรายการ</td></tr>'
++    : displayRows.map(r => `
++      <tr>
++        <td>${r.cat || '—'}</td>
++        <td class="mono">${r.article}</td>
++        <td class="mono">${r.size}</td>
++        <td class="num">${liveFmtNum(r.qty_expected)}</td>
++        <td class="num">${liveFmtNum(r.scanQty)}</td>
++        <td class="num">${liveFmtNum(r.remaining)}</td>
++        <td><span class="tag ${r.status === 'ตรง' ? 'in' : r.status === 'ยังไม่ครบ' ? 'wait' : 'out'}">${r.status}</span></td>
++      </tr>`).join('');
++}
++
++document.getElementById('rcLoadBatchBtn').addEventListener('click', rcLoadOrCreateBatch);
++document.getElementById('rcBatchCodeInput').addEventListener('keydown', (e) => {
++  if (e.key === 'Enter') { e.preventDefault(); rcLoadOrCreateBatch(); }
++});
++
++document.getElementById('rcNewRoundBtn').addEventListener('click', () => {
++  rcState.batch = null; rcState.items = []; rcState.scans = []; rcState.backlogOnly = false;
++  document.getElementById('rcBatchPanel').hidden = true;
++  document.getElementById('rcBatchCodeInput').value = '';
++  document.getElementById('rcBatchCodeInput').focus();
++});
++
++document.getElementById('rcBindFileBtn').addEventListener('click', rcBindFile);
++
++document.getElementById('rcScanInput').addEventListener('keydown', (e) => {
++  if (e.key === 'Enter') {
++    e.preventDefault();
++    const val = e.target.value;
++    e.target.value = '';
++    rcHandleScan(val);
++  }
++});
++
++document.getElementById('rcViewBacklogBtn').addEventListener('click', (e) => {
++  rcState.backlogOnly = !rcState.backlogOnly;
++  e.target.textContent = rcState.backlogOnly ? 'แสดงทั้งหมด' : 'ดูรายการค้าง';
++  if (rcState.batch) rcRenderBatchPanel();
++});
++
++document.getElementById('rcClearScansBtn').addEventListener('click', async () => {
++  if (!rcIsStaff() || !rcState.batch || rcState.batch.status === 'closed') return;
++  if (!confirm('ล้างผลการยิงทั้งหมดของรอบนี้? ไม่สามารถย้อนกลับได้')) return;
++  const { error } = await sb.from('reconcile_scans').delete().eq('batch_id', rcState.batch.id);
++  if (error) { alert('ล้างผลการยิงไม่สำเร็จ: ' + error.message); return; }
++  rcState.scans = [];
++  rcRenderBatchPanel();
++});
++
++document.getElementById('rcDeleteArticleBtn').addEventListener('click', async () => {
++  if (!rcIsStaff() || !rcState.batch || rcState.batch.status === 'closed') return;
++  const article = document.getElementById('rcDeleteArticleInput').value.trim();
++  if (!article) return;
++  if (!confirm(`ลบรายการ Article ${article} ออกจากไฟล์ตั้งต้นของรอบนี้?`)) return;
++  const { error } = await sb.from('reconcile_items').delete().eq('batch_id', rcState.batch.id).eq('article', article);
++  if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
++  document.getElementById('rcDeleteArticleInput').value = '';
++  await rcLoadBatchData();
++});
++
++document.getElementById('rcExportReportBtn').addEventListener('click', () => {
++  if (!rcState.batch) return;
++  const rows = rcBuildReportRows();
++  const header = ['Batch_ID', 'Cat', 'Article', 'Size', 'Base_Qty', 'Scan_Qty', 'Remaining_Qty', 'Result'];
++  const lines = [header.join(',')].concat(rows.map(r => [
++    rcState.batch.batch_code, r.cat || '', r.article, r.size, r.qty_expected, r.scanQty, r.remaining, r.status,
++  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')));
++  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
++  const a = document.createElement('a');
++  a.href = URL.createObjectURL(blob);
++  a.download = `reconcile-${rcState.batch.batch_code}-${new Date().toISOString().slice(0, 10)}.csv`;
++  a.click();
++  URL.revokeObjectURL(a.href);
++});
++
++document.getElementById('rcCloseBatchBtn').addEventListener('click', async () => {
++  if (!rcIsStaff() || !rcState.batch || rcState.batch.status === 'closed') return;
++  if (!confirm('ปิดงานและบันทึก History? หลังปิดจะแก้ไขรอบนี้ไม่ได้อีก')) return;
++
++  const rows = rcBuildReportRows();
++  const stats = rcComputeStats(rows);
++  const { error: histErr } = await sb.from('reconcile_history').insert({
++    batch_id: rcState.batch.id,
++    closed_by: currentUser?.email || currentUser?.id || 'unknown',
++    base_qty: stats.baseQty, accepted_qty: stats.acceptedQty, remaining_qty: stats.remainingQty,
++    base_lines: stats.baseLines, matched_lines: stats.matched, partial_lines: stats.partial,
++    not_scanned_lines: stats.notScanned, total_scan_rows: stats.totalScanRows,
++    rejected_scans: stats.rejectedScans, error_rows: stats.errorRows,
++  });
++  if (histErr) { alert('บันทึก History ไม่สำเร็จ: ' + histErr.message); return; }
++
++  const closedAt = new Date().toISOString();
++  const { error: closeErr } = await sb.from('reconcile_batches')
++    .update({ status: 'closed', closed_at: closedAt }).eq('id', rcState.batch.id);
++  if (closeErr) { alert('ปิดงานไม่สำเร็จ: ' + closeErr.message); return; }
++
++  rcState.batch.status = 'closed';
++  rcState.batch.closed_at = closedAt;
++  rcRenderBatchPanel();
++});
++
+ // ─── View switching ───────────────────────────────────────
+ function showView(name){
+   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+diff --git a/reconcile-schema.sql b/reconcile-schema.sql
+index 8673410..0c81692 100644
+--- a/reconcile-schema.sql
++++ b/reconcile-schema.sql
+@@ -27,24 +27,38 @@ create table if not exists reconcile_batches (
+ -- ─── reconcile_items ───────────────────────────────────────────
+ -- Parsed rows from the uploaded "ไฟล์ตั้งต้น" — the expected stock
+ -- for this batch ("ยอดตั้งต้น"). Re-uploading the file replaces
+--- these rows for the batch (see app logic in index.html).
++-- these rows for the batch (see app logic in index.html). Matched
++-- against scans by article+size — the legacy source file this was
++-- reverse-engineered from (T_Reconcile_Base) has no barcode column at
++-- all, so `barcode` here is optional (kept in case a source file ever
++-- includes one).
+ create table if not exists reconcile_items (
+   id            bigserial primary key,
+   batch_id      uuid not null references reconcile_batches(id) on delete cascade,
+-  barcode       text not null,
+-  cat           text,
++  barcode       text,
++  cat           text,                          -- warehouse zone/rack code, e.g. "12", "Online", "ชั้นลอย" — not a product category
+   article       text,
+   size          text,
+   qty_expected  integer not null default 0,
++  remark        text,                          -- e.g. "Good" — condition note from the ไฟล์ตั้งต้น
+   created_at    timestamptz not null default now()
+ );
+ 
++-- Table may already exist from before this column was added.
++alter table reconcile_items alter column barcode drop not null;
++alter table reconcile_items add column if not exists remark text;
++
+ create index if not exists idx_reconcile_items_batch on reconcile_items (batch_id);
+-create index if not exists idx_reconcile_items_barcode on reconcile_items (batch_id, barcode);
++create index if not exists idx_reconcile_items_article_size on reconcile_items (batch_id, article, size);
+ 
+ -- ─── reconcile_scans ───────────────────────────────────────────
+ -- One row per barcode scan event ("ยิง Barcode"). Matched against
+--- reconcile_items for the same batch to decide ตรง/ไม่ตรง.
++-- reconcile_items for the same batch by article+size (barcode is
++-- parsed client-side into article+size, not compared literally) to
++-- decide ตรง/ไม่ตรง. `qty` is 1 for an accepted (ตรง) scan and 0 for a
++-- rejected one — once accepted scans for an article+size reach that
++-- item's qty_expected, further scans of it are rejected rather than
++-- over-counted (see `reason` values in app logic).
+ create table if not exists reconcile_scans (
+   id            bigserial primary key,
+   batch_id      uuid not null references reconcile_batches(id) on delete cascade,
+@@ -54,14 +68,39 @@ create table if not exists reconcile_scans (
+   size          text,
+   qty           integer not null default 1,
+   result        text not null check (result in ('ตรง', 'ไม่ตรง')),
+-  reason        text,                          -- สาเหตุ, e.g. "ไม่พบใน Batch", "ยิงเกินจำนวนที่กำหนด"
++  reason        text,                          -- สาเหตุที่ไม่ตรง, e.g. "ไม่พบ Article ... ในไฟล์ตั้งต้น"
+   remark        text,
+   scanned_by    uuid references auth.users(id),
+   scanned_at    timestamptz not null default now()
+ );
+ 
+ create index if not exists idx_reconcile_scans_batch on reconcile_scans (batch_id);
+-create index if not exists idx_reconcile_scans_barcode on reconcile_scans (batch_id, barcode);
++create index if not exists idx_reconcile_scans_article_size on reconcile_scans (batch_id, article, size);
++
++-- ─── reconcile_history ─────────────────────────────────────────
++-- Append-only log: one row per "ปิดงาน / บันทึก History" click,
++-- freezing the batch's summary numbers plus who closed it and when.
++-- A batch can in principle be reopened (directly in Supabase) and
++-- closed again, so this is a log rather than a 1:1 row per batch.
++create table if not exists reconcile_history (
++  id                bigserial primary key,
++  batch_id          uuid not null references reconcile_batches(id) on delete cascade,
++  closed_at         timestamptz not null default now(),
++  closed_by         text not null,             -- ผู้ปิดรอบ (email)
++  base_qty          integer not null,
++  accepted_qty      integer not null,
++  remaining_qty     integer not null,          -- ผลต่าง
++  base_lines        integer not null,
++  matched_lines     integer not null,
++  partial_lines     integer not null,
++  not_scanned_lines integer not null,
++  total_scan_rows   integer not null,
++  rejected_scans    integer not null,
++  error_rows        integer not null,
++  remark            text
++);
++
++create index if not exists idx_reconcile_history_batch on reconcile_history (batch_id);
+ 
+ -- ─── Row Level Security ────────────────────────────────────────
+ -- Same admin/warehouse_staff gate as the rest of the app's write
+@@ -69,6 +108,7 @@ create index if not exists idx_reconcile_scans_barcode on reconcile_scans (batch
+ alter table reconcile_batches enable row level security;
+ alter table reconcile_items enable row level security;
+ alter table reconcile_scans enable row level security;
++alter table reconcile_history enable row level security;
+ 
+ create or replace function is_wms_staff()
+ returns boolean
+@@ -89,3 +129,6 @@ create policy "reconcile_items staff access" on reconcile_items
+ 
+ create policy "reconcile_scans staff access" on reconcile_scans
+   for all using (is_wms_staff()) with check (is_wms_staff());
++
++create policy "reconcile_history staff access" on reconcile_history
++  for all using (is_wms_staff()) with check (is_wms_staff());
+-- 
+2.43.0
+

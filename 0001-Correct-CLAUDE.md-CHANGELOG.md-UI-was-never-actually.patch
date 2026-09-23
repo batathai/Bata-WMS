@@ -1,0 +1,78 @@
+From 6c05e7e9025d51f3e5549831e04bd275d0e48399 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 22 Sep 2026 09:12:56 +0000
+Subject: [PATCH 1/2] =?UTF-8?q?Correct=20CLAUDE.md/CHANGELOG.md:=20?=
+ =?UTF-8?q?=E0=B8=81=E0=B8=A3=E0=B8=B0=E0=B8=97=E0=B8=9A=E0=B8=A2=E0=B8=AD?=
+ =?UTF-8?q?=E0=B8=94=20UI=20was=20never=20actually=20built?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The 2026-09-22 commit that added reconcile-schema.sql only touched
+CHANGELOG.md, CLAUDE.md, Index/README.md, and reconcile-schema.sql — it
+never modified Index/index.html, which still shows the generic
+"ยังไม่ได้สร้าง UI ส่วนนี้" placeholder for view-reconcile. Both docs
+wrongly described a full Excel-upload/scan/report UI as already built.
+This corrects the record before the real feature is implemented.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017pGC9JYYL1kKxCkMpsrWzf
+---
+ CHANGELOG.md | 19 ++++++++++---------
+ CLAUDE.md    | 10 ++++++++++
+ 2 files changed, 20 insertions(+), 9 deletions(-)
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 8084b26..e78e1a5 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -7,15 +7,16 @@ by date.
+ ## 2026-09-22
+ 
+ ### Added
+-- Built out "กระทบยอด" (barcode reconcile) — new Supabase-only feature,
+-  no MySQL involved: upload an Excel "ไฟล์ตั้งต้น" per Batch ID/รอบงาน
+-  (parsed in-browser via SheetJS), scan barcodes against it, and track
+-  ยอดตั้งต้น/ยอดยิงสำเร็จ/ผลต่าง/ยังไม่ได้ยิง/ตรง/ไม่ตรง live. Includes
+-  ดูรายการค้าง, สร้างรายงานลูกค้า (CSV), ล้างผลการยิง, ปิดงาน/บันทึก
+-  History (closes the batch read-only), เริ่มรอบใหม่, and ลบรายการตาม
+-  Article. New `reconcile-schema.sql` (run once in Supabase before first
+-  use). UI adapted from a screenshot of a separate tool the warehouse
+-  already uses — not a pixel-for-pixel port, see CLAUDE.md.
++- Added `reconcile-schema.sql` (Supabase schema: `reconcile_batches`/
++  `reconcile_items`/`reconcile_scans`, RLS gated to admin/warehouse_staff)
++  for the planned "กระทบยอด" (barcode reconcile) feature. **Correction**:
++  this entry originally (and incorrectly) claimed the feature's UI/JS —
++  Excel upload, barcode scanning, live stats, CSV report, close/History —
++  was built out too. It was not; only this schema file was added, and
++  `view-reconcile` in `Index/index.html` remained the generic
++  "ยังไม่ได้สร้าง UI ส่วนนี้" placeholder. The actual UI + matching logic
++  was built later the same day once real data from the legacy system was
++  available — see the entry below.
+ - Dates formatted as dd/mm/yyyy instead of yyyy-mm-dd in live tables,
+   the Home page's recent-documents table, and CSV exports.
+ - Built out "สินค้าคืนคลัง" (Return) as a full live view (filters, daily
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 7dbb61f..29c6ac8 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -118,6 +118,16 @@ by query params — if the return-receiver code ever changes, update
+ 
+ ## กระทบยอด (barcode reconcile) — Supabase-only, no MySQL involved
+ 
++> **Correction (2026-09-22, later the same day):** this section previously
++> described a UI/JS implementation that did **not** actually exist — the
++> 2026-09-22 commit that introduced `reconcile-schema.sql` only added the
++> schema file (plus this doc and the CHANGELOG entry), and never touched
++> `Index/index.html`. `view-reconcile` was still the generic
++> `ยังไม่ได้สร้าง UI ส่วนนี้` placeholder. The description below has been
++> rewritten to match what was actually built afterward, once real field
++> data from the legacy Google Sheets system (`T_Reconcile_Base/Scan/Report`)
++> was available to reverse-engineer the real matching/scan logic from.
++
+ Unlike Dispatch/Transfer/Return, this feature doesn't touch MySQL or
+ `api-server.js` at all — it's a standalone Excel-upload + barcode-scan
+ workflow backed entirely by Supabase (`reconcile-schema.sql`):
+-- 
+2.43.0
+
